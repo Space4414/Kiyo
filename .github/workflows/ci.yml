@@ -1,14 +1,16 @@
-name: CI — Build & Assemble
+name: CI — Compile Check
+
+# Runs on pull requests only.
+# Push to main is handled by the Alpha APK workflow which both compiles
+# and publishes the rolling alpha-latest release.
 
 on:
-  push:
-    branches: [main]
   pull_request:
     branches: [main]
 
 jobs:
-  assemble:
-    name: Assemble Debug APK
+  compile:
+    name: Compile Alpha Debug (fast check)
     runs-on: ubuntu-latest
 
     steps:
@@ -30,12 +32,5 @@ jobs:
         with:
           gradle-version: "8.6"
 
-      - name: Assemble Debug APK
-        run: gradle assembleDebug --no-daemon --stacktrace
-
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: kiyo-debug-apk
-          path: app/build/outputs/apk/debug/*.apk
-          retention-days: 14
+      - name: Compile Alpha Debug
+        run: gradle compileAlphaDebugKotlin --no-daemon --stacktrace

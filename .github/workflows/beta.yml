@@ -1,0 +1,109 @@
+name: Beta APK
+
+# Manually triggered. Go to Actions → Beta APK → Run workflow.
+# Provide a version tag (e.g. beta-v1.0.0) and the workflow builds the beta
+# flavor (com.space4414.kiyo.beta) and publishes a pre-release.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_tag:
+        description: 'Release tag  (e.g. beta-v1.0.0)'
+        required: true
+        default: 'beta-v1.0.0'
+      release_notes:
+        description: 'Optional release notes / changelog'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build & Publish Beta APKs
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate tag format
+        run: |
+          TAG="${{ github.event.inputs.version_tag }}"
+          if [[ ! "$TAG" =~ ^beta-v[0-9]+\.[0-9]+\.[0-9]+(-.*)?$ ]]; then
+            echo "::error::Tag must match beta-v<major>.<minor>.<patch> (got: $TAG)"
+            exit 1
+          fi
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Setup Gradle 8.6
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: "8.6"
+
+      - name: Build Beta Debug APKs (all ABIs)
+        run: gradle assembleBetaDebug --no-daemon --stacktrace
+
+      - name: Rename APKs for release
+        run: |
+          mkdir -p release-apks
+          TAG="${{ github.event.inputs.version_tag }}"
+          for f in app/build/outputs/apk/beta/debug/*.apk; do
+            case "$f" in
+              *-arm64-v8a-*)   cp "$f" "release-apks/Kiyo-Beta-64bit-arm64-v8a-${TAG}.apk"   ;;
+              *-armeabi-v7a-*) cp "$f" "release-apks/Kiyo-Beta-32bit-armeabi-v7a-${TAG}.apk" ;;
+              *-x86_64-*)      cp "$f" "release-apks/Kiyo-Beta-x86_64-${TAG}.apk"             ;;
+              *-x86-*)         cp "$f" "release-apks/Kiyo-Beta-x86-${TAG}.apk"                ;;
+              *-universal-*)   cp "$f" "release-apks/Kiyo-Beta-universal-${TAG}.apk"          ;;
+            esac
+          done
+          echo "--- APKs to upload ---"
+          ls -lh release-apks/
+
+      - name: Publish beta pre-release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ github.event.inputs.version_tag }}"
+          EXTRA_NOTES="${{ github.event.inputs.release_notes }}"
+          DATE="$(date -u '+%Y-%m-%d %H:%M UTC')"
+
+          NOTES="## Kiyo Beta — ${TAG}
+
+          Built from commit \`${GITHUB_SHA}\` · ${DATE}
+
+          ### Install
+          Package ID: \`com.space4414.kiyo.beta\`
+          Can be installed **alongside** Kiyo Alpha and Kiyo (stable).
+
+          | APK | Target |
+          |-----|--------|
+          | Kiyo-Beta-64bit-arm64-v8a-${TAG}.apk  | Modern Android phones (recommended) |
+          | Kiyo-Beta-32bit-armeabi-v7a-${TAG}.apk | Older/32-bit ARM devices (Android 7+) |
+          | Kiyo-Beta-x86_64-${TAG}.apk            | 64-bit x86 emulators |
+          | Kiyo-Beta-x86-${TAG}.apk               | 32-bit x86 emulators |
+          | Kiyo-Beta-universal-${TAG}.apk         | All architectures (largest file) |"
+
+          if [ -n "$EXTRA_NOTES" ]; then
+            NOTES="${NOTES}
+
+          ### Release Notes
+          ${EXTRA_NOTES}"
+          fi
+
+          gh release create "$TAG" \
+            --prerelease \
+            --title "Kiyo Beta — ${TAG}" \
+            --notes "$NOTES" \
+            --target "$GITHUB_SHA" \
+            release-apks/*.apk

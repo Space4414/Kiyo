@@ -1,0 +1,115 @@
+name: Stable APK
+
+# Manually triggered. Go to Actions → Stable APK → Run workflow.
+# Provide a version tag (e.g. v1.0.0) and the workflow builds the stable
+# flavor (com.space4414.kiyo) as a minified release build and publishes a
+# full GitHub Release (not a pre-release).
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_tag:
+        description: 'Release tag  (e.g. v1.0.0)'
+        required: true
+        default: 'v1.0.0'
+      release_notes:
+        description: 'Changelog / release notes (Markdown supported)'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build & Publish Stable APKs
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate tag format
+        run: |
+          TAG="${{ github.event.inputs.version_tag }}"
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-.*)?$ ]]; then
+            echo "::error::Tag must match v<major>.<minor>.<patch> (got: $TAG)"
+            exit 1
+          fi
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Setup Gradle 8.6
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: "8.6"
+
+      # Stable uses the release build type:
+      #   - R8 / ProGuard minification + resource shrinking
+      #   - Signed with the debug keystore (installable without Play Store)
+      #   - Replace signingConfig in build.gradle.kts when submitting to Play Store
+      - name: Build Stable Release APKs (all ABIs)
+        run: gradle assembleStableRelease --no-daemon --stacktrace
+
+      - name: Rename APKs for release
+        run: |
+          mkdir -p release-apks
+          TAG="${{ github.event.inputs.version_tag }}"
+          for f in app/build/outputs/apk/stable/release/*.apk; do
+            case "$f" in
+              *-arm64-v8a-*)   cp "$f" "release-apks/Kiyo-64bit-arm64-v8a-${TAG}.apk"   ;;
+              *-armeabi-v7a-*) cp "$f" "release-apks/Kiyo-32bit-armeabi-v7a-${TAG}.apk" ;;
+              *-x86_64-*)      cp "$f" "release-apks/Kiyo-x86_64-${TAG}.apk"             ;;
+              *-x86-*)         cp "$f" "release-apks/Kiyo-x86-${TAG}.apk"                ;;
+              *-universal-*)   cp "$f" "release-apks/Kiyo-universal-${TAG}.apk"          ;;
+            esac
+          done
+          echo "--- APKs to upload ---"
+          ls -lh release-apks/
+
+      - name: Publish stable release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ github.event.inputs.version_tag }}"
+          EXTRA_NOTES="${{ github.event.inputs.release_notes }}"
+          DATE="$(date -u '+%Y-%m-%d %H:%M UTC')"
+
+          NOTES="## Kiyo ${TAG}
+
+          Built from commit \`${GITHUB_SHA}\` · ${DATE}
+
+          ### Install
+          Package ID: \`com.space4414.kiyo\`
+          Can be installed **alongside** Kiyo Alpha and Kiyo Beta.
+
+          | APK | Target |
+          |-----|--------|
+          | Kiyo-64bit-arm64-v8a-${TAG}.apk  | Modern Android phones (recommended) |
+          | Kiyo-32bit-armeabi-v7a-${TAG}.apk | Older/32-bit ARM devices (Android 7+) |
+          | Kiyo-x86_64-${TAG}.apk            | 64-bit x86 emulators |
+          | Kiyo-x86-${TAG}.apk               | 32-bit x86 emulators |
+          | Kiyo-universal-${TAG}.apk         | All architectures (largest file) |
+
+          > **Build type:** Minified release (R8 + resource shrinking). Signed with debug keystore — suitable for direct install. Use a Play Store keystore for production distribution."
+
+          if [ -n "$EXTRA_NOTES" ]; then
+            NOTES="${NOTES}
+
+          ### What's Changed
+          ${EXTRA_NOTES}"
+          fi
+
+          gh release create "$TAG" \
+            --title "Kiyo ${TAG}" \
+            --notes "$NOTES" \
+            --target "$GITHUB_SHA" \
+            release-apks/*.apk

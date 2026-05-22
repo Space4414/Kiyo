@@ -24,7 +24,54 @@ android {
         }
     }
 
+    // ─── Distribution tracks ───────────────────────────────────────────────────
+    // Each flavor gets a distinct applicationId so all three can be installed
+    // on the same device simultaneously.
+    flavorDimensions += "track"
+
+    productFlavors {
+        // Installed as: com.space4414.kiyo.alpha  |  Label: "Kiyo Alpha"
+        create("alpha") {
+            dimension = "track"
+            applicationId = "com.space4414.kiyo.alpha"
+            versionNameSuffix = "-alpha"
+            resValue("string", "app_name", "Kiyo Alpha")
+        }
+        // Installed as: com.space4414.kiyo.beta   |  Label: "Kiyo Beta"
+        create("beta") {
+            dimension = "track"
+            applicationId = "com.space4414.kiyo.beta"
+            versionNameSuffix = "-beta"
+            resValue("string", "app_name", "Kiyo Beta")
+        }
+        // Installed as: com.space4414.kiyo        |  Label: "Kiyo"
+        create("stable") {
+            dimension = "track"
+            // applicationId intentionally not overridden — inherits
+            // "com.space4414.kiyo" from defaultConfig
+            resValue("string", "app_name", "Kiyo")
+        }
+    }
+
+    // ─── ABI splits ────────────────────────────────────────────────────────────
+    // Produces 5 APKs per variant:
+    //   arm64-v8a (64-bit ARM), armeabi-v7a (32-bit ARM),
+    //   x86_64, x86, and a fat universal APK.
+    splits {
+        abi {
+            isEnable = true
+            reset()
+            include("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
+            isUniversalApk = true
+        }
+    }
+
+    // ─── Build types ───────────────────────────────────────────────────────────
     buildTypes {
+        debug {
+            isDebuggable = true
+            isMinifyEnabled = false
+        }
         release {
             isMinifyEnabled = true
             isShrinkResources = true
@@ -32,6 +79,10 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            // Sign release builds with the debug keystore so the stable APK
+            // is side-loadable without a Play Store keystore.
+            // Replace with a proper signingConfig before Play Store submission.
+            signingConfig = signingConfigs.getByName("debug")
         }
     }
 
@@ -49,6 +100,33 @@ android {
 
     packaging {
         resources { excludes += "/META-INF/{AL2.0,LGPL2.1}" }
+    }
+}
+
+// ─── Per-ABI version codes ─────────────────────────────────────────────────────
+// Ensures 64-bit builds always have a higher version code than 32-bit builds,
+// so Android can upgrade from 32-bit to 64-bit without uninstalling.
+//
+//   universal    → versionCode * 10 + 0
+//   armeabi-v7a  → versionCode * 10 + 1   (32-bit ARM)
+//   arm64-v8a    → versionCode * 10 + 2   (64-bit ARM — preferred)
+//   x86          → versionCode * 10 + 3
+//   x86_64       → versionCode * 10 + 4
+androidComponents {
+    onVariants { variant ->
+        variant.outputs.forEach { output ->
+            val abiFilter = output.filters
+                .find { it.filterType == com.android.build.api.variant.FilterConfiguration.FilterType.ABI }
+                ?.identifier
+            val abiCode = when (abiFilter) {
+                "armeabi-v7a" -> 1
+                "arm64-v8a"   -> 2
+                "x86"         -> 3
+                "x86_64"      -> 4
+                else           -> 0
+            }
+            output.versionCode.set(android.defaultConfig.versionCode!! * 10 + abiCode)
+        }
     }
 }
 

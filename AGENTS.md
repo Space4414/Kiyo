@@ -41,6 +41,50 @@ source of ground truth for "what changed and why" across sessions.
 
 ---
 
+### 2026-05-22T15:00:00Z — Feature: Three-track CI/CD workflows + ABI-split APKs
+
+**Agent:** Main Agent (Replit)
+**Motivation:** User requested three distinct build/release tracks (Alpha auto, Beta manual, Stable manual), simultaneous install of all three, per-ABI APK splits, and Releases page uploads.
+
+**What was built:**
+
+| Track | Package ID | Build type | Trigger | Release |
+|-------|-----------|------------|---------|---------|
+| Alpha | `com.space4414.kiyo.alpha` | debug | every push to `main` | Pre-release `alpha-latest` (rolling, replaced on each push) |
+| Beta  | `com.space4414.kiyo.beta`  | debug | `workflow_dispatch` | Pre-release `beta-v{tag}` |
+| Stable | `com.space4414.kiyo`      | release (R8, debug-signed) | `workflow_dispatch` | Full release `v{tag}` |
+
+Each release publishes **5 APKs**: `64bit-arm64-v8a`, `32bit-armeabi-v7a`, `x86_64`, `x86`, `universal`.
+
+**Per-ABI version codes** (so 64-bit upgrades cleanly over 32-bit):
+- universal → `versionCode * 10 + 0`
+- armeabi-v7a → `versionCode * 10 + 1`
+- arm64-v8a → `versionCode * 10 + 2`
+- x86 → `versionCode * 10 + 3`
+- x86_64 → `versionCode * 10 + 4`
+
+#### Files Modified/Created
+
+| Action | Path | What Changed |
+|--------|------|--------------|
+| MOD | `app/build.gradle.kts` | Added `flavorDimensions`, 3 `productFlavors`, `splits.abi`, `androidComponents` versionCode override, debug `signingConfig` on release build type |
+| MOD | `app/src/main/res/values/strings.xml` | Removed hardcoded `app_name` (now generated per-flavor via `resValue`) |
+| CREATE | `.github/workflows/alpha.yml` | Push → `assembleAlphaDebug` → delete + recreate `alpha-latest` rolling pre-release |
+| CREATE | `.github/workflows/beta.yml` | `workflow_dispatch(version_tag)` → `assembleBetaDebug` → beta pre-release |
+| CREATE | `.github/workflows/stable.yml` | `workflow_dispatch(version_tag)` → `assembleStableRelease` → stable full release |
+| MOD | `.github/workflows/ci.yml` | Changed trigger to `pull_request` only; changed task to `compileAlphaDebugKotlin` |
+
+#### Notes for Future Agents
+
+- **Simultaneous install**: Three different `applicationId` values → Android treats them as three separate apps. All can coexist.
+- **Stable release signing**: Currently uses the debug keystore (`signingConfigs.getByName("debug")`). To publish to Play Store, add a `release` signingConfig with the production keystore credentials stored as GitHub secrets, and point `buildTypes.release.signingConfig` to it.
+- **Alpha rolling release**: The `alpha.yml` workflow deletes the `alpha-latest` release and tag before recreating them. This means there is always exactly one alpha release on the Releases page.
+- **Beta/Stable tag format**: Beta enforces `beta-v*.*.*`; stable enforces `v*.*.*`. The workflow will fail with a clear error if the format is wrong.
+- **`ci.yml` is PR-only now**: Pushes to `main` are covered by `alpha.yml`. Running both on push would be redundant and double the CI minutes.
+- **APK rename logic**: `case "$f" in *-x86_64-*) ...` must appear before `*-x86-*) ...` to avoid `x86_64` files being matched by the shorter pattern.
+
+---
+
 ### 2026-05-22T14:00:00Z — Fix: Android 7 startup crash (SecurityException + unguarded Future)
 
 **Agent:** Main Agent (Replit)
