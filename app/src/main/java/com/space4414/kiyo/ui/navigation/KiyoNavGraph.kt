@@ -2,10 +2,10 @@ package com.space4414.kiyo.ui.navigation
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -28,8 +28,7 @@ fun KiyoNavGraph(
     onRequestStoragePermission: () -> Unit = {},
 ) {
     val viewModel: PlayerViewModel = hiltViewModel()
-    val storagePermissionGranted by viewModel.storagePermissionGranted
-        .collectAsStateWithLifecycle()
+    val storagePermissionGranted by viewModel.storagePermissionGranted.collectAsState()
 
     Box(modifier = modifier) {
         NavHost(
