@@ -41,6 +41,26 @@ source of ground truth for "what changed and why" across sessions.
 
 ---
 
+### 2026-05-22T13:06:00Z — Fix: SortedMap compilation error in LastFmScrobbler
+
+**Agent:** Main Agent (Replit)
+**Motivation:** CI run `26289344358` failed — Kotlin compiler could not resolve `SortedMap` reference (unimported `java.util.SortedMap`).
+**State after:** CI run `26289620818` — **success**. Debug APK `kiyo-debug-apk` (~20 MB) uploaded as artifact.
+
+#### Files Modified
+
+| Action | Path | What Changed |
+|--------|------|--------------|
+| MOD | `app/src/main/java/com/space4414/kiyo/integration/lastfm/LastFmScrobbler.kt` | Changed `sign()` parameter from `SortedMap<String,String>` → `Map<String,String>`; added `.sortedBy { it.key }` inline so the signature is still deterministic |
+
+#### Notes for Future Agents
+
+- `SortedMap` (from `java.util`) is not auto-imported in Kotlin Android. Prefer `Map<K,V>` parameters and sort at call-site if ordering is needed.
+- CI badge: `https://github.com/Space4414/Kiyo/actions/workflows/ci.yml`
+- Debug APK download: Actions tab → run `26289620818` → artifact `kiyo-debug-apk`
+
+---
+
 ### 2026-05-22T00:00:00Z — Phase 2: Full Core Architecture Build
 
 **Agent:** Main Agent (Replit)
