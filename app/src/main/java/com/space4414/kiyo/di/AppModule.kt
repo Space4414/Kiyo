@@ -4,6 +4,7 @@ import android.content.Context
 import com.space4414.kiyo.data.db.AppDatabase
 import com.space4414.kiyo.data.db.dao.ArtistDao
 import com.space4414.kiyo.data.db.dao.TrackDao
+import com.space4414.kiyo.ui.settings.SettingsRepository
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -29,4 +30,9 @@ object AppModule {
     @Provides
     @Singleton
     fun provideContext(@ApplicationContext context: Context): Context = context
+
+    @Provides
+    @Singleton
+    fun provideSettingsRepository(@ApplicationContext context: Context): SettingsRepository =
+        SettingsRepository(context)
 }
