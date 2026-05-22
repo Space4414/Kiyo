@@ -41,6 +41,36 @@ source of ground truth for "what changed and why" across sessions.
 
 ---
 
+  ### 2026-05-22T22:30:00Z — Fix: Album Art, Settings Screen, Gaussian Blur, Artist Separators, Low-end Mode
+
+  **Agent:** Main Agent (Replit)
+  **Motivation:** Album art not loading, settings gear not opening, user wanted Gaussian blur with sub-settings, toggleable low-end device optimizations, and Poweramp-style artist separators.
+  **State after:** 18 source files pushed; Alpha CI triggered.
+
+  #### Files Added/Modified (summary)
+  - ADD AppSettings.kt, SettingsRepository.kt, SettingsViewModel.kt, LocalAppSettings.kt
+  - ADD SettingsScreen.kt (Performance/Blur/Animation/Background sections with sub-settings)
+  - ADD ArtistUtils.kt (toDisplayArtist(), artistAlbumLine() — Poweramp style " · " separators)
+  - ADD FilterPill.kt (extracted from HomeScreen)
+  - MOD AlbumArtBox.kt — ContentUris.withAppendedId + crossfade + cache policy
+  - MOD FrostedCard.kt — adjusts fill alpha when blur is enabled; no content blur
+  - MOD AmbientBackdrop.kt — applies Modifier.blur(radius) to gradient Canvas layer
+  - MOD KiyoNavGraph.kt — CompositionLocalProvider(LocalAppSettings), Routes.SETTINGS, onOpenSettings
+  - MOD HomeScreen.kt — settings gear now navigates to SettingsScreen, toDisplayArtist()
+  - MOD PlayerScreen/LibraryScreen/SearchScreen/QueueScreen/MiniPlayer — toDisplayArtist()
+  - MOD AppModule.kt — provides SettingsRepository via Hilt
+
+  #### Key Design Decisions
+  - Blur applied to AmbientBackdrop Canvas layer only; FrostedCard never blurs its own content
+  - Modifier.blur() is API-21 safe in Compose (uses RenderEffect API31+, software BlurMaskFilter below)
+  - Performance mode is a master kill switch; sub-settings tune individual aspects when it's off
+  - staticCompositionLocalOf used for LocalAppSettings (settings changes trigger full recompose anyway)
+
+  ---
+
+  
+---
+
 ### 2026-05-22T18:00:00Z — UI Overhaul: Premium Glassmorphic Design System
 
 **Agent:** Main Agent (Replit)
