@@ -42,26 +42,29 @@ class PlayerViewModel @Inject constructor(
     val allTracks: StateFlow<List<TrackEntity>> = repository.allTracks
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    /** True once the user has granted storage permission. */
+    val recentlyPlayed: StateFlow<List<TrackEntity>> = repository.recentlyPlayed
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
     private val _storagePermissionGranted = MutableStateFlow(false)
     val storagePermissionGranted: StateFlow<Boolean> = _storagePermissionGranted.asStateFlow()
+
+    // ── EQ State ──────────────────────────────────────────────────────────────
+    private val _eqBands = MutableStateFlow(FloatArray(31) { 0f })
+    val eqBands: StateFlow<FloatArray> = _eqBands.asStateFlow()
+
+    private val _preAmpGain = MutableStateFlow(0f)
+    val preAmpGain: StateFlow<Float> = _preAmpGain.asStateFlow()
 
     private var controllerFuture: ListenableFuture<MediaController>? = null
     private var controller: MediaController? = null
 
     init {
         connectToService()
-        // Initial scan — MusicRepository.syncLibrary() silently returns on
-        // SecurityException so this is safe even before permission is granted.
         refreshLibrary()
     }
 
     // ─── Public API ───────────────────────────────────────────────────────────
 
-    /**
-     * Called by MainActivity when the storage permission result is known.
-     * Triggers a library scan whenever the permission transitions to granted.
-     */
     fun updateStoragePermission(granted: Boolean) {
         val wasGranted = _storagePermissionGranted.value
         _storagePermissionGranted.value = granted
@@ -70,7 +73,6 @@ class PlayerViewModel @Inject constructor(
         }
     }
 
-    /** Trigger a MediaStore library scan. Safe to call at any time. */
     fun refreshLibrary() {
         viewModelScope.launch {
             try {
@@ -121,6 +123,12 @@ class PlayerViewModel @Inject constructor(
         ctrl.prepare()
         ctrl.play()
         _uiState.update { it.copy(queue = tracks, currentTrack = tracks.getOrNull(startIndex)) }
+        tracks.getOrNull(startIndex)?.let { track ->
+            viewModelScope.launch {
+                try { repository.incrementPlayCount(track.id) }
+                catch (e: Exception) { Log.w(TAG, "incrementPlayCount failed", e) }
+            }
+        }
     }
 
     fun togglePlayPause() {
@@ -131,6 +139,18 @@ class PlayerViewModel @Inject constructor(
     fun seekTo(positionMs: Long) { controller?.seekTo(positionMs) }
     fun skipNext() { controller?.seekToNextMediaItem() }
     fun skipPrev() { controller?.seekToPreviousMediaItem() }
+
+    // ── EQ API ────────────────────────────────────────────────────────────────
+
+    fun setEqBand(index: Int, gainDb: Float) {
+        val current = _eqBands.value.copyOf()
+        current[index] = gainDb.coerceIn(-12f, 12f)
+        _eqBands.value = current
+    }
+
+    fun setPreAmpGain(gainDb: Float) {
+        _preAmpGain.value = gainDb.coerceIn(-12f, 12f)
+    }
 
     // ─── MediaController lifecycle ────────────────────────────────────────────
 

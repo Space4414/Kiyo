@@ -1,21 +1,51 @@
 package com.space4414.kiyo.ui.screen
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.MusicNote
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.GraphicEq
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.space4414.kiyo.data.db.entity.TrackEntity
+import com.space4414.kiyo.ui.component.AlbumArtBox
 import com.space4414.kiyo.ui.component.AmbientBackdrop
 import com.space4414.kiyo.ui.component.FrostedCard
+import com.space4414.kiyo.ui.theme.KiyoCharcoalCard
+import com.space4414.kiyo.ui.theme.KiyoTeal
 import com.space4414.kiyo.ui.viewmodel.PlayerViewModel
 
 @Composable
@@ -29,42 +59,68 @@ fun QueueScreen(
     Box(modifier = modifier.fillMaxSize()) {
         AmbientBackdrop(modifier = Modifier.fillMaxSize())
 
-        Scaffold(
-            containerColor = MaterialTheme.colorScheme.background.copy(alpha = 0f),
-            topBar = {
-                QueueTopBar(
-                    count = uiState.queue.size,
-                    onClose = onBack,
-                )
-            }
-        ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .statusBarsPadding(),
+        ) {
+            QueueTopBar(count = uiState.queue.size, onClose = onBack)
+
             if (uiState.queue.isEmpty()) {
                 Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(padding),
+                    modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text(
-                        "Queue is empty",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(
+                            Icons.Default.GraphicEq,
+                            contentDescription = null,
+                            modifier = Modifier.size(56.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        Text(
+                            "Queue is empty",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
             } else {
                 LazyColumn(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(padding),
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    itemsIndexed(uiState.queue, key = { i, t -> "${i}_${t.id}" }) { index, track ->
+                    itemsIndexed(
+                        uiState.queue,
+                        key = { i, t -> "${i}_${t.id}" },
+                    ) { index, track ->
+                        val isActive = track.id == uiState.currentTrack?.id
                         QueueRow(
                             index = index + 1,
                             track = track,
-                            isActive = track.id == uiState.currentTrack?.id,
+                            isActive = isActive,
+                            onClick = {
+                                viewModel.playAll(uiState.queue, index)
+                            },
                         )
+                    }
+
+                    item {
+                        Spacer(Modifier.height(8.dp))
+                        Button(
+                            onClick = {},
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(48.dp),
+                            shape = RoundedCornerShape(24.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = KiyoCharcoalCard,
+                                contentColor = MaterialTheme.colorScheme.onSurface,
+                            ),
+                        ) {
+                            Text("+ Add New Queue", fontWeight = FontWeight.SemiBold)
+                        }
                     }
                 }
             }
@@ -72,69 +128,82 @@ fun QueueScreen(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun QueueTopBar(count: Int, onClose: () -> Unit) {
-    TopAppBar(
-        title = {
-            Column {
-                Text("Play Queue", style = MaterialTheme.typography.titleLarge)
-                Text(
-                    "$count tracks",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        },
-        navigationIcon = {
-            IconButton(onClick = onClose) {
-                Icon(Icons.Default.Close, contentDescription = "Close")
-            }
-        },
-        colors = TopAppBarDefaults.topAppBarColors(
-            containerColor = MaterialTheme.colorScheme.background.copy(alpha = 0.6f),
-        ),
-    )
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        IconButton(onClick = onClose) {
+            Icon(
+                Icons.Default.KeyboardArrowDown,
+                contentDescription = "Close",
+                tint = MaterialTheme.colorScheme.onSurface,
+            )
+        }
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                "Active Queues",
+                style = MaterialTheme.typography.titleLarge,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Text(
+                "$count tracks",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Spacer(Modifier.size(48.dp))
+    }
 }
 
 @Composable
-private fun QueueRow(index: Int, track: TrackEntity, isActive: Boolean) {
+private fun QueueRow(
+    index: Int,
+    track: TrackEntity,
+    isActive: Boolean,
+    onClick: () -> Unit,
+) {
     FrostedCard(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
         fillColor = if (isActive)
-            MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+            KiyoTeal.copy(alpha = 0.15f)
         else
             MaterialTheme.colorScheme.surface.copy(alpha = 0.4f),
+        cornerRadius = 16.dp,
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(
-                "%02d".format(index),
-                style = MaterialTheme.typography.labelMedium,
-                color = if (isActive) MaterialTheme.colorScheme.primary
-                else MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.width(28.dp),
+            AlbumArtBox(
+                albumId = track.albumId,
+                modifier = Modifier.size(48.dp),
+                cornerRadius = 8.dp,
+                iconSize = 20.dp,
             )
-            Spacer(Modifier.width(10.dp))
-            if (isActive) {
-                Icon(
-                    Icons.Default.MusicNote,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(18.dp),
-                )
-                Spacer(Modifier.width(6.dp))
-            }
+            Spacer(Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
+                if (isActive) {
+                    Text(
+                        "Currently playing",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = KiyoTeal,
+                        fontSize = 10.sp,
+                    )
+                }
                 Text(
                     track.title,
                     style = MaterialTheme.typography.bodyLarge,
-                    color = if (isActive) MaterialTheme.colorScheme.primary
-                    else MaterialTheme.colorScheme.onSurface,
+                    color = if (isActive) KiyoTeal else MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
+                    fontWeight = if (isActive) FontWeight.SemiBold else FontWeight.Normal,
                 )
                 Text(
                     track.rawArtist,
@@ -142,6 +211,14 @@ private fun QueueRow(index: Int, track: TrackEntity, isActive: Boolean) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
+                )
+            }
+            if (isActive) {
+                Icon(
+                    Icons.Default.GraphicEq,
+                    contentDescription = null,
+                    tint = KiyoTeal,
+                    modifier = Modifier.size(20.dp),
                 )
             }
         }

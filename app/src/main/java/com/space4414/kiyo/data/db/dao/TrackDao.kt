@@ -19,6 +19,9 @@ interface TrackDao {
     @Query("SELECT * FROM tracks ORDER BY title ASC")
     fun observeAll(): Flow<List<TrackEntity>>
 
+    @Query("SELECT * FROM tracks WHERE last_played_at > 0 ORDER BY last_played_at DESC LIMIT :limit")
+    fun observeRecentlyPlayed(limit: Int = 20): Flow<List<TrackEntity>>
+
     @Query("SELECT * FROM tracks WHERE id = :id")
     suspend fun getById(id: Long): TrackEntity?
 

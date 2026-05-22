@@ -22,11 +22,9 @@ class MusicRepository @Inject constructor(
     private val scanner: MediaStoreScanner,
     private val artistParser: ArtistParser,
 ) {
-    /** Observe all tracks sorted by title. */
     val allTracks: Flow<List<TrackEntity>> = trackDao.observeAll()
-
-    /** Observe all artists sorted by name. */
     val allArtists: Flow<List<ArtistEntity>> = artistDao.observeAll()
+    val recentlyPlayed: Flow<List<TrackEntity>> = trackDao.observeRecentlyPlayed()
 
     fun tracksForArtist(artistId: Long): Flow<List<TrackEntity>> =
         trackDao.observeByArtist(artistId)
@@ -34,15 +32,6 @@ class MusicRepository @Inject constructor(
     fun tracksForAlbum(albumId: Long): Flow<List<TrackEntity>> =
         trackDao.observeByAlbum(albumId)
 
-    /**
-     * Full library sync.
-     *
-     * Safely guarded — returns without throwing on:
-     *  - [SecurityException]: storage permission not yet granted (Android 6+)
-     *  - Any other scan / DB exception: logged, sync aborted cleanly
-     *
-     * Callers should retry after storage permission is granted.
-     */
     suspend fun syncLibrary() = withContext(Dispatchers.IO) {
         val rawTracks = try {
             scanner.scan()

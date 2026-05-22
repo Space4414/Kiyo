@@ -1,23 +1,44 @@
 package com.space4414.kiyo.ui.screen
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.FolderOff
 import androidx.compose.material.icons.filled.MusicNote
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.Shuffle
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.space4414.kiyo.data.db.entity.TrackEntity
+import com.space4414.kiyo.ui.component.AlbumArtBox
 import com.space4414.kiyo.ui.component.AmbientBackdrop
 import com.space4414.kiyo.ui.component.FrostedCard
+import com.space4414.kiyo.ui.theme.KiyoTeal
 import com.space4414.kiyo.ui.viewmodel.PlayerViewModel
 
 @Composable
@@ -34,52 +55,39 @@ fun LibraryScreen(
     Box(modifier = modifier.fillMaxSize()) {
         AmbientBackdrop(modifier = Modifier.fillMaxSize())
 
-        Scaffold(
-            containerColor = MaterialTheme.colorScheme.background.copy(alpha = 0f),
-            topBar = {
-                LibraryTopBar(
-                    trackCount = tracks.size,
-                    onPlayAll = {
-                        if (tracks.isNotEmpty()) {
-                            viewModel.playAll(tracks)
-                            onOpenPlayer()
-                        }
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .statusBarsPadding(),
+        ) {
+            LibraryHeader(
+                trackCount = tracks.size,
+                onShuffle = {
+                    if (tracks.isNotEmpty()) {
+                        val shuffled = tracks.shuffled()
+                        viewModel.playAll(shuffled)
+                        onOpenPlayer()
                     }
-                )
-            },
-            bottomBar = {
-                if (uiState.currentTrack != null) {
-                    MiniPlayer(
-                        track = uiState.currentTrack!!,
-                        isPlaying = uiState.isPlaying,
-                        onToggle = viewModel::togglePlayPause,
-                        onExpand = onOpenPlayer,
-                    )
-                }
-            }
-        ) { padding ->
+                },
+            )
+
             when {
-                // Permission denied — show a prominent banner with a "Grant" button
                 !hasStoragePermission -> {
                     PermissionEmptyState(
                         onRequestPermission = onRequestStoragePermission,
-                        modifier = Modifier.padding(padding),
+                        modifier = Modifier.fillMaxSize(),
                     )
                 }
-                // Permission granted but no tracks yet
-                tracks.isEmpty() -> {
-                    EmptyLibrary(modifier = Modifier.padding(padding))
-                }
-                // Normal track list
+                tracks.isEmpty() -> EmptyLibrary(modifier = Modifier.fillMaxSize())
                 else -> {
                     TrackList(
                         tracks = tracks,
                         currentTrackId = uiState.currentTrack?.id,
-                        modifier = Modifier.padding(padding),
+                        modifier = Modifier.fillMaxSize(),
                         onTrackClick = { index ->
                             viewModel.playAll(tracks, index)
                             onOpenPlayer()
-                        }
+                        },
                     )
                 }
             }
@@ -87,7 +95,39 @@ fun LibraryScreen(
     }
 }
 
-// ─── Permission empty state ────────────────────────────────────────────────────
+@Composable
+private fun LibraryHeader(trackCount: Int, onShuffle: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 12.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column {
+            Text(
+                "Library",
+                style = MaterialTheme.typography.headlineMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            if (trackCount > 0) {
+                Text(
+                    "$trackCount tracks",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        IconButton(onClick = onShuffle) {
+            Icon(
+                Icons.Default.Shuffle,
+                contentDescription = "Shuffle all",
+                tint = KiyoTeal,
+                modifier = Modifier.size(24.dp),
+            )
+        }
+    }
+}
 
 @Composable
 private fun PermissionEmptyState(
@@ -95,9 +135,7 @@ private fun PermissionEmptyState(
     modifier: Modifier = Modifier,
 ) {
     Box(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(32.dp),
+        modifier = modifier.padding(32.dp),
         contentAlignment = Alignment.Center,
     ) {
         FrostedCard(modifier = Modifier.fillMaxWidth()) {
@@ -107,26 +145,27 @@ private fun PermissionEmptyState(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Icon(
-                    imageVector = Icons.Default.FolderOff,
+                    Icons.Default.FolderOff,
                     contentDescription = null,
                     modifier = Modifier.size(56.dp),
                     tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
                 )
                 Text(
-                    text = "Music Library Access",
+                    "Music Library Access",
                     style = MaterialTheme.typography.titleLarge,
                     textAlign = TextAlign.Center,
                 )
                 Text(
-                    text = "Kiyo needs permission to read your music files from device storage.",
+                    "Kiyo needs permission to read your music files from device storage.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center,
                 )
-                Spacer(Modifier.height(4.dp))
+                Spacer(Modifier)
                 Button(
                     onClick = onRequestPermission,
                     modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = KiyoTeal),
                 ) {
                     Text("Grant Access")
                 }
@@ -145,11 +184,9 @@ private fun PermissionEmptyState(
     }
 }
 
-// ─── Empty library (permission granted, no tracks) ────────────────────────────
-
 @Composable
 private fun EmptyLibrary(modifier: Modifier = Modifier) {
-    Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+    Box(modifier = modifier, contentAlignment = Alignment.Center) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -158,7 +195,7 @@ private fun EmptyLibrary(modifier: Modifier = Modifier) {
                 Icons.Default.MusicNote,
                 contentDescription = null,
                 modifier = Modifier.size(64.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
             )
             Text("No music found", style = MaterialTheme.typography.titleMedium)
             Text(
@@ -170,33 +207,6 @@ private fun EmptyLibrary(modifier: Modifier = Modifier) {
     }
 }
 
-// ─── Track list ───────────────────────────────────────────────────────────────
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun LibraryTopBar(trackCount: Int, onPlayAll: () -> Unit) {
-    TopAppBar(
-        title = {
-            Column {
-                Text("Kiyo", style = MaterialTheme.typography.titleLarge)
-                Text(
-                    "$trackCount tracks",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        },
-        actions = {
-            IconButton(onClick = onPlayAll) {
-                Icon(Icons.Default.PlayArrow, contentDescription = "Play all")
-            }
-        },
-        colors = TopAppBarDefaults.topAppBarColors(
-            containerColor = MaterialTheme.colorScheme.background.copy(alpha = 0.6f),
-        ),
-    )
-}
-
 @Composable
 private fun TrackList(
     tracks: List<TrackEntity>,
@@ -205,7 +215,7 @@ private fun TrackList(
     onTrackClick: (Int) -> Unit,
 ) {
     LazyColumn(
-        modifier = modifier.fillMaxSize(),
+        modifier = modifier,
         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
@@ -226,28 +236,26 @@ private fun TrackRow(track: TrackEntity, isActive: Boolean, onClick: () -> Unit)
             .fillMaxWidth()
             .clickable(onClick = onClick),
         fillColor = if (isActive)
-            MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+            KiyoTeal.copy(alpha = 0.12f)
         else
             MaterialTheme.colorScheme.surface.copy(alpha = 0.5f),
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(
-                Icons.Default.MusicNote,
-                contentDescription = null,
-                tint = if (isActive) MaterialTheme.colorScheme.primary
-                else MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(20.dp),
+            AlbumArtBox(
+                albumId = track.albumId,
+                modifier = Modifier.size(48.dp),
+                cornerRadius = 8.dp,
+                iconSize = 20.dp,
             )
-            Spacer(Modifier.width(14.dp))
+            Spacer(Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = track.title,
                     style = MaterialTheme.typography.titleMedium,
-                    color = if (isActive) MaterialTheme.colorScheme.primary
-                    else MaterialTheme.colorScheme.onSurface,
+                    color = if (isActive) KiyoTeal else MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -259,6 +267,7 @@ private fun TrackRow(track: TrackEntity, isActive: Boolean, onClick: () -> Unit)
                     overflow = TextOverflow.Ellipsis,
                 )
             }
+            Spacer(Modifier.width(8.dp))
             Text(
                 text = formatDuration(track.durationMs),
                 style = MaterialTheme.typography.labelMedium,
@@ -267,54 +276,6 @@ private fun TrackRow(track: TrackEntity, isActive: Boolean, onClick: () -> Unit)
         }
     }
 }
-
-// ─── Mini player ──────────────────────────────────────────────────────────────
-
-@Composable
-private fun MiniPlayer(
-    track: TrackEntity,
-    isPlaying: Boolean,
-    onToggle: () -> Unit,
-    onExpand: () -> Unit,
-) {
-    FrostedCard(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 8.dp)
-            .clickable(onClick = onExpand),
-        cornerRadius = 20.dp,
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    track.title,
-                    style = MaterialTheme.typography.titleMedium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Text(
-                    track.rawArtist,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-            IconButton(onClick = onToggle) {
-                Icon(
-                    if (isPlaying) Icons.Default.MusicNote else Icons.Default.PlayArrow,
-                    contentDescription = if (isPlaying) "Pause" else "Play",
-                    tint = MaterialTheme.colorScheme.primary,
-                )
-            }
-        }
-    }
-}
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 private fun formatDuration(ms: Long): String {
     val totalSec = ms / 1000

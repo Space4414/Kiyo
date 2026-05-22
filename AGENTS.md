@@ -41,6 +41,56 @@ source of ground truth for "what changed and why" across sessions.
 
 ---
 
+### 2026-05-22T18:00:00Z — UI Overhaul: Premium Glassmorphic Design System
+
+**Agent:** Main Agent (Replit)
+**Motivation:** User requested a full UI redesign to match the premium dark glassmorphic reference image. Replaced the 3-screen stack (Library → Player → Queue) with a 4-tab bottom-nav architecture (Home · Search · Library · Audio DSP) and comprehensively redesigned every screen to match the reference.
+**State after:** Full UI overhaul committed; Alpha CI build triggered on push to main.
+
+#### Files Added
+
+| Action | Path | Purpose |
+|--------|------|---------|
+| ADD | `app/.../ui/component/AlbumArtBox.kt` | Reusable album art thumbnail using Coil SubcomposeAsyncImage; constructs `content://media/external/audio/albumart/{albumId}` URI; falls back to MusicNote icon |
+| ADD | `app/.../ui/component/MiniPlayer.kt` | Floating glassmorphic pill mini-player: album art thumb, track name + artist, solid-white circular play/pause, razor-thin progress bar on bottom edge |
+| ADD | `app/.../ui/component/BottomNavBar.kt` | 4-tab glassmorphic bottom nav (Home, Search, Library, Audio DSP) built on FrostedCard; active tab has teal tint + dot indicator |
+| ADD | `app/.../ui/component/DrawBehindOutline.kt` | Utility Modifier extension wrapping `border()` for consistent 1dp translucent outline application |
+| ADD | `app/.../ui/screen/HomeScreen.kt` | Main dashboard: 48sp "Kiyo" bold header, Settings gear, Recently Played horizontal LazyRow cards, Artists/Albums/Songs filter pills, library grid view |
+| ADD | `app/.../ui/screen/SearchScreen.kt` | Search screen: glassmorphic TextField, live-filter results from allTracks, result count label, empty/no-match states |
+| ADD | `app/.../ui/screen/DspScreen.kt` | 31-band graphic EQ screen: PreAmp column (left, fixed), 31 EqFaderColumn items (horizontally scrollable), glowing neon Bezier trace Canvas overlay drawn with dual-width glow pass |
+
+#### Files Modified
+
+| Action | Path | What Changed |
+|--------|------|--------------|
+| MOD | `app/.../ui/screen/PlayerScreen.kt` | Full redesign: square AlbumArtBox (300dp × 24dp radius), left-aligned bold 26sp title, thin white Slider seek bar, solid-white 72dp circular play/pause button (dark icon inside), "Lyrics / Up Next ↑" TextButton row at bottom |
+| MOD | `app/.../ui/screen/LibraryScreen.kt` | Refactored as pure tab content (mini player + bottom nav now live in KiyoNavGraph scaffold); track rows now include AlbumArtBox thumbnail; Shuffle icon replaces Play All |
+| MOD | `app/.../ui/screen/QueueScreen.kt` | Renamed heading to "Active Queues"; active track shows "Currently playing" label + KiyoTeal highlight; GraphicEq icon on active rows; "Add New Queue" FrostedCard button at list end |
+| MOD | `app/.../ui/navigation/KiyoNavGraph.kt` | Restructured to 4-tab NavHost (home/search/library/dsp) + overlay routes (player/queue); MiniPlayer + BottomNavBar rendered in a bottom-anchored Column only on tab screens; `isTabScreen` guard prevents nav UI on full-screen player |
+| MOD | `app/.../ui/viewmodel/PlayerViewModel.kt` | Added `recentlyPlayed: StateFlow<List<TrackEntity>>` from repository; added `eqBands: MutableStateFlow<FloatArray>` (31 × 0f) and `preAmpGain: MutableStateFlow<Float>`; added `setEqBand(index, gainDb)` and `setPreAmpGain(gainDb)` public methods; `playAll()` now also calls `incrementPlayCount` for the starting track |
+| MOD | `app/.../data/db/dao/TrackDao.kt` | Added `observeRecentlyPlayed(limit: Int = 20): Flow<List<TrackEntity>>` — orders by `last_played_at DESC` where `> 0` |
+| MOD | `app/.../data/repository/MusicRepository.kt` | Exposed `recentlyPlayed: Flow<List<TrackEntity>>` backed by the new DAO query |
+| MOD | `app/.../ui/component/AmbientBackdrop.kt` | Slightly enlarged radial gradient radii for richer coverage; refactored anchors for better visual balance; added doc comment on dynamic color parameter for future Palette integration |
+
+#### Design Decisions
+
+- **Solid white play/pause button** — The reference image shows a bright white circle as the primary play/pause control. `Color(0xFF12161A)` icon on `Color.White` background gives the strongest contrast on the dark glassmorphic background.
+- **EQ fader via pointerInput + Canvas** — `Modifier.rotate(-90f)` on `Slider` produces misaligned touch targets. Custom vertical fader uses `detectVerticalDragGestures` on an invisible overlay Box + a Canvas-drawn track/fill/thumb for reliable interaction at all API levels.
+- **EQ trace line: dual-pass glow** — The neon curve is drawn twice: once at 3px for the crisp line, once at 10px at 25% alpha for the diffuse glow. This avoids `BlurMaskFilter` (which can fall back to software rendering on older devices).
+- **4-tab navigation** — Routes home/search/library/dsp are "tab" routes; player/queue are overlay routes. `isTabScreen` flag in KiyoNavGraph controls MiniPlayer + BottomNavBar visibility so they disappear during full-screen playback.
+- **RecentlyPlayed backed by `last_played_at`** — Rather than a separate table, the existing `last_played_at` column (populated by `incrementPlayCount`) naturally provides recency ordering. The `HomeScreen` "Recently Played" section is only shown when at least one track has `last_played_at > 0`.
+- **AlbumArtBox URI construction** — Android's `content://media/external/audio/albumart/{albumId}` is the canonical MediaStore album art URI available since API 4. Coil handles in-memory caching automatically.
+
+#### Notes for Future Agents
+
+- **EQ audio hookup** — `eqBands` and `preAmpGain` in the ViewModel are UI state only; they are NOT yet wired to an `android.media.audiofx.Equalizer`. To connect: (1) hold a reference to ExoPlayer's `audioSessionId` in `PlaybackService`, (2) create `Equalizer(0, sessionId)` and `PresetReverb` instances, (3) observe the ViewModel state and apply band levels. The EQ screen UI is complete and functional — this is just the audio engine side.
+- **Palette-based AmbientBackdrop** — `AmbientBackdrop` already accepts `tealColor`, `purpleColor`, `amberColor` params. To enable dynamic album-art tinting: extract dominant colors via `androidx.palette:palette-ktx` in a `LaunchedEffect` in `PlayerScreen`, derive tinted versions, and pass them down. The Palette dependency is already in `build.gradle.kts`.
+- **`observeRecentlyPlayed` default limit** — Currently 20. Adjust the `LIMIT` or expose it as a parameter if needed.
+- **DB schema unchanged** — No new columns or tables were added in this session. `fallbackToDestructiveMigration()` in `AppDatabase` is still in place (dev-only). The `last_played_at` column already existed from Phase 2.
+- **`DrawBehindOutline.kt`** — Utility file providing `Modifier.drawBehindOutline()`. Not currently used in production code (BottomNavBar uses FrostedCard directly), but kept for convenience. Safe to delete if unused.
+
+---
+
 ### 2026-05-22T16:00:00Z — Feature: Release Keystore + Library Permission Empty-State
 
 **Agent:** Main Agent (Replit)
