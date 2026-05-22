@@ -148,8 +148,8 @@ class LastFmScrobbler @Inject constructor(
     }
 
     /** HMAC-MD5 API signature per Last.fm spec. */
-    private fun sign(params: SortedMap<String, String>): String {
-        val raw = params.entries.joinToString("") { "${it.key}${it.value}" } + apiSecret
+    private fun sign(params: Map<String, String>): String {
+        val raw = params.entries.sortedBy { it.key }.joinToString("") { "${it.key}${it.value}" } + apiSecret
         val md = MessageDigest.getInstance("MD5")
         val hash = md.digest(raw.toByteArray())
         return BigInteger(1, hash).toString(16).padStart(32, '0')
