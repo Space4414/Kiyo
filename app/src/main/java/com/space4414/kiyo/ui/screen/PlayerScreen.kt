@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.MoreVert
@@ -43,13 +44,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.space4414.kiyo.ui.component.AlbumArtBox
 import com.space4414.kiyo.ui.component.AmbientBackdrop
 import com.space4414.kiyo.ui.viewmodel.PlayerViewModel
+import com.space4414.kiyo.util.artistAlbumLine
 
 @Composable
 fun PlayerScreen(
@@ -71,33 +72,21 @@ fun PlayerScreen(
                 .padding(horizontal = 28.dp),
         ) {
             PlayerTopBar(onBack = onBack)
-
             Spacer(Modifier.weight(0.3f))
 
             if (track != null) {
                 AlbumArtBox(
                     albumId = track.albumId,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(300.dp),
-                    cornerRadius = 24.dp,
-                    iconSize = 80.dp,
+                    modifier = Modifier.fillMaxWidth().height(300.dp),
+                    cornerRadius = 24.dp, iconSize = 80.dp,
                 )
             } else {
                 Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(300.dp)
-                        .clip(androidx.compose.foundation.shape.RoundedCornerShape(24.dp))
+                    modifier = Modifier.fillMaxWidth().height(300.dp)
+                        .clip(RoundedCornerShape(24.dp))
                         .background(MaterialTheme.colorScheme.surfaceVariant),
                     contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        "Nothing playing",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
+                ) { Text("Nothing playing", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant) }
             }
 
             Spacer(Modifier.height(28.dp))
@@ -114,7 +103,7 @@ fun PlayerScreen(
                 )
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    text = "${track.rawArtist} · ${track.album}",
+                    text = artistAlbumLine(track.rawArtist, track.album),
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
@@ -123,26 +112,20 @@ fun PlayerScreen(
             }
 
             Spacer(Modifier.height(24.dp))
-
             PlayerSeekBar(
                 positionMs = uiState.positionMs,
                 durationMs = uiState.durationMs,
                 onSeek = viewModel::seekTo,
             )
-
             Spacer(Modifier.height(20.dp))
-
             PlayerControls(
                 isPlaying = uiState.isPlaying,
                 onPrev = viewModel::skipPrev,
                 onToggle = viewModel::togglePlayPause,
                 onNext = viewModel::skipNext,
             )
-
             Spacer(Modifier.weight(1f))
-
             PlayerBottomLinks(onLyrics = {}, onUpNext = onOpenQueue)
-
             Spacer(Modifier.height(24.dp))
         }
     }
@@ -151,31 +134,19 @@ fun PlayerScreen(
 @Composable
 private fun PlayerTopBar(onBack: () -> Unit) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 12.dp),
+        modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
         IconButton(onClick = onBack) {
-            Icon(
-                Icons.Default.KeyboardArrowDown,
-                contentDescription = "Back",
-                modifier = Modifier.size(28.dp),
-                tint = MaterialTheme.colorScheme.onSurface,
-            )
+            Icon(Icons.Default.KeyboardArrowDown, contentDescription = "Back",
+                modifier = Modifier.size(28.dp), tint = MaterialTheme.colorScheme.onSurface)
         }
-        Text(
-            "Now Playing",
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        Text("Now Playing", style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
         IconButton(onClick = {}) {
-            Icon(
-                Icons.Default.MoreVert,
-                contentDescription = "More",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            Icon(Icons.Default.MoreVert, contentDescription = "More",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -183,7 +154,6 @@ private fun PlayerTopBar(onBack: () -> Unit) {
 @Composable
 private fun PlayerSeekBar(positionMs: Long, durationMs: Long, onSeek: (Long) -> Unit) {
     val progress = if (durationMs > 0L) positionMs.toFloat() / durationMs else 0f
-
     Column {
         Slider(
             value = progress.coerceIn(0f, 1f),
@@ -196,20 +166,11 @@ private fun PlayerSeekBar(positionMs: Long, durationMs: Long, onSeek: (Long) -> 
             ),
             interactionSource = remember { MutableInteractionSource() },
         )
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
-            Text(
-                formatDuration(positionMs),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Text(
-                formatDuration(durationMs),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(formatDuration(positionMs), style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(formatDuration(durationMs), style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -226,55 +187,31 @@ private fun PlayerControls(
         animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
         label = "play_scale",
     )
-
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        IconButton(
-            onClick = onPrev,
-            modifier = Modifier.size(56.dp),
-        ) {
-            Icon(
-                Icons.Default.SkipPrevious,
-                contentDescription = "Previous",
-                modifier = Modifier.size(36.dp),
-                tint = MaterialTheme.colorScheme.onSurface,
-            )
+        IconButton(onClick = onPrev, modifier = Modifier.size(56.dp)) {
+            Icon(Icons.Default.SkipPrevious, contentDescription = "Previous",
+                modifier = Modifier.size(36.dp), tint = MaterialTheme.colorScheme.onSurface)
         }
-
         Spacer(Modifier.width(28.dp))
-
         Box(
-            modifier = Modifier
-                .size(72.dp)
-                .scale(scale)
-                .clip(CircleShape)
-                .background(Color.White)
-                .clickable(onClick = onToggle),
+            modifier = Modifier.size(72.dp).scale(scale).clip(CircleShape)
+                .background(Color.White).clickable(onClick = onToggle),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
                 imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
                 contentDescription = if (isPlaying) "Pause" else "Play",
-                modifier = Modifier.size(40.dp),
-                tint = Color(0xFF12161A),
+                modifier = Modifier.size(40.dp), tint = Color(0xFF12161A),
             )
         }
-
         Spacer(Modifier.width(28.dp))
-
-        IconButton(
-            onClick = onNext,
-            modifier = Modifier.size(56.dp),
-        ) {
-            Icon(
-                Icons.Default.SkipNext,
-                contentDescription = "Next",
-                modifier = Modifier.size(36.dp),
-                tint = MaterialTheme.colorScheme.onSurface,
-            )
+        IconButton(onClick = onNext, modifier = Modifier.size(56.dp)) {
+            Icon(Icons.Default.SkipNext, contentDescription = "Next",
+                modifier = Modifier.size(36.dp), tint = MaterialTheme.colorScheme.onSurface)
         }
     }
 }
@@ -287,23 +224,17 @@ private fun PlayerBottomLinks(onLyrics: () -> Unit, onUpNext: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         TextButton(onClick = onLyrics) {
-            Text(
-                "Lyrics",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            Text("Lyrics", style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         TextButton(onClick = onUpNext) {
-            Text(
-                "Up Next  ↑",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            Text("Up Next  ↑", style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
 
-private fun formatDuration(ms: Long): String {
+internal fun formatDuration(ms: Long): String {
     val totalSec = ms / 1000
     return "%d:%02d".format(totalSec / 60, totalSec % 60)
 }
