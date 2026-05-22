@@ -40,6 +40,7 @@ import com.space4414.kiyo.ui.component.AmbientBackdrop
 import com.space4414.kiyo.ui.component.FrostedCard
 import com.space4414.kiyo.ui.theme.KiyoTeal
 import com.space4414.kiyo.ui.viewmodel.PlayerViewModel
+import com.space4414.kiyo.util.toDisplayArtist
 
 @Composable
 fun LibraryScreen(
@@ -72,24 +73,21 @@ fun LibraryScreen(
             )
 
             when {
-                !hasStoragePermission -> {
+                !hasStoragePermission ->
                     PermissionEmptyState(
                         onRequestPermission = onRequestStoragePermission,
                         modifier = Modifier.fillMaxSize(),
                     )
-                }
                 tracks.isEmpty() -> EmptyLibrary(modifier = Modifier.fillMaxSize())
-                else -> {
-                    TrackList(
-                        tracks = tracks,
-                        currentTrackId = uiState.currentTrack?.id,
-                        modifier = Modifier.fillMaxSize(),
-                        onTrackClick = { index ->
-                            viewModel.playAll(tracks, index)
-                            onOpenPlayer()
-                        },
-                    )
-                }
+                else -> TrackList(
+                    tracks = tracks,
+                    currentTrackId = uiState.currentTrack?.id,
+                    modifier = Modifier.fillMaxSize(),
+                    onTrackClick = { index ->
+                        viewModel.playAll(tracks, index)
+                        onOpenPlayer()
+                    },
+                )
             }
         }
     }
@@ -105,11 +103,7 @@ private fun LibraryHeader(trackCount: Int, onShuffle: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column {
-            Text(
-                "Library",
-                style = MaterialTheme.typography.headlineMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
+            Text("Library", style = MaterialTheme.typography.headlineMedium)
             if (trackCount > 0) {
                 Text(
                     "$trackCount tracks",
@@ -119,42 +113,24 @@ private fun LibraryHeader(trackCount: Int, onShuffle: () -> Unit) {
             }
         }
         IconButton(onClick = onShuffle) {
-            Icon(
-                Icons.Default.Shuffle,
-                contentDescription = "Shuffle all",
-                tint = KiyoTeal,
-                modifier = Modifier.size(24.dp),
-            )
+            Icon(Icons.Default.Shuffle, contentDescription = "Shuffle all",
+                tint = KiyoTeal, modifier = Modifier.size(24.dp))
         }
     }
 }
 
 @Composable
-private fun PermissionEmptyState(
-    onRequestPermission: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Box(
-        modifier = modifier.padding(32.dp),
-        contentAlignment = Alignment.Center,
-    ) {
+private fun PermissionEmptyState(onRequestPermission: () -> Unit, modifier: Modifier = Modifier) {
+    Box(modifier = modifier.padding(32.dp), contentAlignment = Alignment.Center) {
         FrostedCard(modifier = Modifier.fillMaxWidth()) {
             Column(
                 modifier = Modifier.padding(28.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Icon(
-                    Icons.Default.FolderOff,
-                    contentDescription = null,
-                    modifier = Modifier.size(56.dp),
-                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
-                )
-                Text(
-                    "Music Library Access",
-                    style = MaterialTheme.typography.titleLarge,
-                    textAlign = TextAlign.Center,
-                )
+                Icon(Icons.Default.FolderOff, null, modifier = Modifier.size(56.dp),
+                    tint = MaterialTheme.colorScheme.primary.copy(0.8f))
+                Text("Music Library Access", style = MaterialTheme.typography.titleLarge, textAlign = TextAlign.Center)
                 Text(
                     "Kiyo needs permission to read your music files from device storage.",
                     style = MaterialTheme.typography.bodyMedium,
@@ -162,22 +138,14 @@ private fun PermissionEmptyState(
                     textAlign = TextAlign.Center,
                 )
                 Spacer(Modifier)
-                Button(
-                    onClick = onRequestPermission,
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = KiyoTeal),
-                ) {
+                Button(onClick = onRequestPermission, modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = KiyoTeal)) {
                     Text("Grant Access")
                 }
-                TextButton(
-                    onClick = onRequestPermission,
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text(
-                        "Open Settings if you already denied",
+                TextButton(onClick = onRequestPermission, modifier = Modifier.fillMaxWidth()) {
+                    Text("Open Settings if you already denied",
                         style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }
@@ -187,22 +155,13 @@ private fun PermissionEmptyState(
 @Composable
 private fun EmptyLibrary(modifier: Modifier = Modifier) {
     Box(modifier = modifier, contentAlignment = Alignment.Center) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Icon(
-                Icons.Default.MusicNote,
-                contentDescription = null,
-                modifier = Modifier.size(64.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
-            )
+        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Icon(Icons.Default.MusicNote, null, modifier = Modifier.size(64.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(0.4f))
             Text("No music found", style = MaterialTheme.typography.titleMedium)
-            Text(
-                "Add audio files to your device storage",
+            Text("Add audio files to your device storage",
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -232,39 +191,29 @@ private fun TrackList(
 @Composable
 private fun TrackRow(track: TrackEntity, isActive: Boolean, onClick: () -> Unit) {
     FrostedCard(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
-        fillColor = if (isActive)
-            KiyoTeal.copy(alpha = 0.12f)
-        else
-            MaterialTheme.colorScheme.surface.copy(alpha = 0.5f),
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
+        fillColor = if (isActive) KiyoTeal.copy(alpha = 0.12f)
+                    else MaterialTheme.colorScheme.surface.copy(alpha = 0.5f),
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            AlbumArtBox(
-                albumId = track.albumId,
-                modifier = Modifier.size(48.dp),
-                cornerRadius = 8.dp,
-                iconSize = 20.dp,
-            )
+            AlbumArtBox(albumId = track.albumId, modifier = Modifier.size(48.dp),
+                cornerRadius = 8.dp, iconSize = 20.dp)
             Spacer(Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = track.title,
                     style = MaterialTheme.typography.titleMedium,
                     color = if (isActive) KiyoTeal else MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    text = track.rawArtist,
+                    text = track.rawArtist.toDisplayArtist(),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis,
                 )
             }
             Spacer(Modifier.width(8.dp))
@@ -275,9 +224,4 @@ private fun TrackRow(track: TrackEntity, isActive: Boolean, onClick: () -> Unit)
             )
         }
     }
-}
-
-private fun formatDuration(ms: Long): String {
-    val totalSec = ms / 1000
-    return "%d:%02d".format(totalSec / 60, totalSec % 60)
 }
