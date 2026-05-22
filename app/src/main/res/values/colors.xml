@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="kiyo_charcoal">#FF12161A</color>
+    <color name="kiyo_teal">#FF1DB9AA</color>
+    <color name="kiyo_purple">#FF8B5CF6</color>
+    <color name="kiyo_amber">#FFF59E0B</color>
+    <color name="kiyo_surface">#FF1A2028</color>
+    <color name="kiyo_on_surface">#FFE8EAF0</color>
+</resources>

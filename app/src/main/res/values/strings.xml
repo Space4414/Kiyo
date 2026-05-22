@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Kiyo</string>
+    <string name="playback_channel_name">Kiyo Playback</string>
+    <string name="now_playing">Now Playing</string>
+    <string name="library">Library</string>
+    <string name="queue">Queue</string>
+    <string name="no_music_found">No music found</string>
+    <string name="add_music_hint">Add audio files to your device storage</string>
+</resources>
