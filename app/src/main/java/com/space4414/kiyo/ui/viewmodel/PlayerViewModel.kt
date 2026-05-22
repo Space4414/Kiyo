@@ -42,20 +42,35 @@ class PlayerViewModel @Inject constructor(
     val allTracks: StateFlow<List<TrackEntity>> = repository.allTracks
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    /** True once the user has granted storage permission. */
+    private val _storagePermissionGranted = MutableStateFlow(false)
+    val storagePermissionGranted: StateFlow<Boolean> = _storagePermissionGranted.asStateFlow()
+
     private var controllerFuture: ListenableFuture<MediaController>? = null
     private var controller: MediaController? = null
 
     init {
         connectToService()
-        // Initial sync — guarded internally against SecurityException.
-        // If storage permission isn't granted yet, syncLibrary() returns safely.
-        // MainActivity calls refreshLibrary() once the user grants permission.
+        // Initial scan — MusicRepository.syncLibrary() silently returns on
+        // SecurityException so this is safe even before permission is granted.
         refreshLibrary()
     }
 
     // ─── Public API ───────────────────────────────────────────────────────────
 
-    /** Trigger a MediaStore library scan. Safe to call at any time — no-op on SecurityException. */
+    /**
+     * Called by MainActivity when the storage permission result is known.
+     * Triggers a library scan whenever the permission transitions to granted.
+     */
+    fun updateStoragePermission(granted: Boolean) {
+        val wasGranted = _storagePermissionGranted.value
+        _storagePermissionGranted.value = granted
+        if (granted && !wasGranted) {
+            refreshLibrary()
+        }
+    }
+
+    /** Trigger a MediaStore library scan. Safe to call at any time. */
     fun refreshLibrary() {
         viewModelScope.launch {
             try {
@@ -122,18 +137,13 @@ class PlayerViewModel @Inject constructor(
     private fun connectToService() {
         val ctx = getApplication<Application>()
         try {
-            val token = SessionToken(
-                ctx,
-                ComponentName(ctx, PlaybackService::class.java)
-            )
+            val token = SessionToken(ctx, ComponentName(ctx, PlaybackService::class.java))
             controllerFuture = MediaController.Builder(ctx, token).buildAsync()
             controllerFuture?.addListener({
                 try {
                     controller = controllerFuture?.get()
                     controller?.addListener(playerListener)
                 } catch (e: Exception) {
-                    // Service not available yet (e.g. process just started) — playback
-                    // will not work until the user taps play, which re-binds the service.
                     Log.w(TAG, "MediaController connection failed: ${e.message}")
                 }
             }, MoreExecutors.directExecutor())
@@ -142,13 +152,10 @@ class PlayerViewModel @Inject constructor(
         }
     }
 
-    // ─── Player listener ──────────────────────────────────────────────────────
-
     private val playerListener = object : Player.Listener {
         override fun onIsPlayingChanged(isPlaying: Boolean) {
             _uiState.update { it.copy(isPlaying = isPlaying) }
         }
-
         override fun onPositionDiscontinuity(
             oldPosition: Player.PositionInfo,
             newPosition: Player.PositionInfo,

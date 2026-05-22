@@ -5,12 +5,14 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.FolderOff
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.space4414.kiyo.data.db.entity.TrackEntity
@@ -21,6 +23,8 @@ import com.space4414.kiyo.ui.viewmodel.PlayerViewModel
 @Composable
 fun LibraryScreen(
     viewModel: PlayerViewModel,
+    hasStoragePermission: Boolean,
+    onRequestStoragePermission: () -> Unit,
     onOpenPlayer: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -54,22 +58,119 @@ fun LibraryScreen(
                 }
             }
         ) { padding ->
-            if (tracks.isEmpty()) {
-                EmptyLibrary(modifier = Modifier.padding(padding))
-            } else {
-                TrackList(
-                    tracks = tracks,
-                    currentTrackId = uiState.currentTrack?.id,
-                    modifier = Modifier.padding(padding),
-                    onTrackClick = { index ->
-                        viewModel.playAll(tracks, index)
-                        onOpenPlayer()
-                    }
-                )
+            when {
+                // Permission denied — show a prominent banner with a "Grant" button
+                !hasStoragePermission -> {
+                    PermissionEmptyState(
+                        onRequestPermission = onRequestStoragePermission,
+                        modifier = Modifier.padding(padding),
+                    )
+                }
+                // Permission granted but no tracks yet
+                tracks.isEmpty() -> {
+                    EmptyLibrary(modifier = Modifier.padding(padding))
+                }
+                // Normal track list
+                else -> {
+                    TrackList(
+                        tracks = tracks,
+                        currentTrackId = uiState.currentTrack?.id,
+                        modifier = Modifier.padding(padding),
+                        onTrackClick = { index ->
+                            viewModel.playAll(tracks, index)
+                            onOpenPlayer()
+                        }
+                    )
+                }
             }
         }
     }
 }
+
+// ─── Permission empty state ────────────────────────────────────────────────────
+
+@Composable
+private fun PermissionEmptyState(
+    onRequestPermission: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(32.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        FrostedCard(modifier = Modifier.fillMaxWidth()) {
+            Column(
+                modifier = Modifier.padding(28.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.Default.FolderOff,
+                    contentDescription = null,
+                    modifier = Modifier.size(56.dp),
+                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
+                )
+                Text(
+                    text = "Music Library Access",
+                    style = MaterialTheme.typography.titleLarge,
+                    textAlign = TextAlign.Center,
+                )
+                Text(
+                    text = "Kiyo needs permission to read your music files from device storage.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                )
+                Spacer(Modifier.height(4.dp))
+                Button(
+                    onClick = onRequestPermission,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text("Grant Access")
+                }
+                TextButton(
+                    onClick = onRequestPermission,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(
+                        "Open Settings if you already denied",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+    }
+}
+
+// ─── Empty library (permission granted, no tracks) ────────────────────────────
+
+@Composable
+private fun EmptyLibrary(modifier: Modifier = Modifier) {
+    Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Icon(
+                Icons.Default.MusicNote,
+                contentDescription = null,
+                modifier = Modifier.size(64.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text("No music found", style = MaterialTheme.typography.titleMedium)
+            Text(
+                "Add audio files to your device storage",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+// ─── Track list ───────────────────────────────────────────────────────────────
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -167,6 +268,8 @@ private fun TrackRow(track: TrackEntity, isActive: Boolean, onClick: () -> Unit)
     }
 }
 
+// ─── Mini player ──────────────────────────────────────────────────────────────
+
 @Composable
 private fun MiniPlayer(
     track: TrackEntity,
@@ -211,30 +314,9 @@ private fun MiniPlayer(
     }
 }
 
-@Composable
-private fun EmptyLibrary(modifier: Modifier = Modifier) {
-    Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(
-                Icons.Default.MusicNote,
-                contentDescription = null,
-                modifier = Modifier.size(64.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(Modifier.height(16.dp))
-            Text("No music found", style = MaterialTheme.typography.titleMedium)
-            Text(
-                "Add audio files to your device storage",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    }
-}
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 private fun formatDuration(ms: Long): String {
     val totalSec = ms / 1000
-    val min = totalSec / 60
-    val sec = totalSec % 60
-    return "%d:%02d".format(min, sec)
+    return "%d:%02d".format(totalSec / 60, totalSec % 60)
 }

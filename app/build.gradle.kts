@@ -24,39 +24,50 @@ android {
         }
     }
 
+    // ─── Release keystore ─────────────────────────────────────────────────────
+    // In CI: SIGNING_KEYSTORE_PATH, SIGNING_STORE_PASSWORD, SIGNING_KEY_ALIAS,
+    //        SIGNING_KEY_PASSWORD are set by the stable.yml workflow from GitHub
+    //        Secrets.  Locally those env vars are absent, so the release build
+    //        type falls back to the debug keystore (still side-loadable).
+    signingConfigs {
+        create("release") {
+            val keystorePath  = System.getenv("SIGNING_KEYSTORE_PATH")
+            val storePass     = System.getenv("SIGNING_STORE_PASSWORD")
+            val kAlias        = System.getenv("SIGNING_KEY_ALIAS")
+            val kPass         = System.getenv("SIGNING_KEY_PASSWORD")
+            if (!keystorePath.isNullOrBlank() && !storePass.isNullOrBlank()) {
+                storeFile     = file(keystorePath)
+                storeType     = "PKCS12"
+                storePassword = storePass
+                keyAlias      = kAlias
+                keyPassword   = kPass
+            }
+        }
+    }
+
     // ─── Distribution tracks ───────────────────────────────────────────────────
-    // Each flavor gets a distinct applicationId so all three can be installed
-    // on the same device simultaneously.
     flavorDimensions += "track"
 
     productFlavors {
-        // Installed as: com.space4414.kiyo.alpha  |  Label: "Kiyo Alpha"
         create("alpha") {
             dimension = "track"
             applicationId = "com.space4414.kiyo.alpha"
             versionNameSuffix = "-alpha"
             resValue("string", "app_name", "Kiyo Alpha")
         }
-        // Installed as: com.space4414.kiyo.beta   |  Label: "Kiyo Beta"
         create("beta") {
             dimension = "track"
             applicationId = "com.space4414.kiyo.beta"
             versionNameSuffix = "-beta"
             resValue("string", "app_name", "Kiyo Beta")
         }
-        // Installed as: com.space4414.kiyo        |  Label: "Kiyo"
         create("stable") {
             dimension = "track"
-            // applicationId intentionally not overridden — inherits
-            // "com.space4414.kiyo" from defaultConfig
             resValue("string", "app_name", "Kiyo")
         }
     }
 
     // ─── ABI splits ────────────────────────────────────────────────────────────
-    // Produces 5 APKs per variant:
-    //   arm64-v8a (64-bit ARM), armeabi-v7a (32-bit ARM),
-    //   x86_64, x86, and a fat universal APK.
     splits {
         abi {
             isEnable = true
@@ -79,10 +90,11 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            // Sign release builds with the debug keystore so the stable APK
-            // is side-loadable without a Play Store keystore.
-            // Replace with a proper signingConfig before Play Store submission.
-            signingConfig = signingConfigs.getByName("debug")
+            val releaseConfig = signingConfigs.getByName("release")
+            signingConfig = if (releaseConfig.storeFile?.exists() == true)
+                releaseConfig
+            else
+                signingConfigs.getByName("debug")
         }
     }
 
@@ -104,14 +116,6 @@ android {
 }
 
 // ─── Per-ABI version codes ─────────────────────────────────────────────────────
-// Ensures 64-bit builds always have a higher version code than 32-bit builds,
-// so Android can upgrade from 32-bit to 64-bit without uninstalling.
-//
-//   universal    → versionCode * 10 + 0
-//   armeabi-v7a  → versionCode * 10 + 1   (32-bit ARM)
-//   arm64-v8a    → versionCode * 10 + 2   (64-bit ARM — preferred)
-//   x86          → versionCode * 10 + 3
-//   x86_64       → versionCode * 10 + 4
 androidComponents {
     onVariants { variant ->
         variant.outputs.forEach { output ->
@@ -146,38 +150,24 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.0")
     implementation("androidx.activity:activity-compose:1.9.0")
 
-    // Media3 / ExoPlayer
     implementation("androidx.media3:media3-exoplayer:1.3.1")
     implementation("androidx.media3:media3-session:1.3.1")
     implementation("androidx.media3:media3-ui:1.3.1")
     implementation("androidx.media3:media3-common:1.3.1")
 
-    // Room
     implementation("androidx.room:room-runtime:2.6.1")
     implementation("androidx.room:room-ktx:2.6.1")
     ksp("androidx.room:room-compiler:2.6.1")
 
-    // Hilt
     implementation("com.google.dagger:hilt-android:2.51.1")
     ksp("com.google.dagger:hilt-compiler:2.51.1")
     implementation("androidx.hilt:hilt-navigation-compose:1.2.0")
 
-    // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
-
-    // Networking (Last.fm)
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
-
-    // Palette
     implementation("androidx.palette:palette-ktx:1.0.0")
-
-    // Coil
     implementation("io.coil-kt:coil-compose:2.6.0")
-
-    // DataStore
     implementation("androidx.datastore:datastore-preferences:1.1.1")
-
-    // JSON
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
 
     debugImplementation("androidx.compose.ui:ui-tooling")

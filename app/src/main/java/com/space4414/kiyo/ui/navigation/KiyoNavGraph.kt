@@ -2,8 +2,10 @@ package com.space4414.kiyo.ui.navigation
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -23,8 +25,11 @@ object Routes {
 fun KiyoNavGraph(
     modifier: Modifier = Modifier,
     navController: NavHostController = rememberNavController(),
+    onRequestStoragePermission: () -> Unit = {},
 ) {
     val viewModel: PlayerViewModel = hiltViewModel()
+    val storagePermissionGranted by viewModel.storagePermissionGranted
+        .collectAsStateWithLifecycle()
 
     Box(modifier = modifier) {
         NavHost(
@@ -34,6 +39,8 @@ fun KiyoNavGraph(
             composable(Routes.LIBRARY) {
                 LibraryScreen(
                     viewModel = viewModel,
+                    hasStoragePermission = storagePermissionGranted,
+                    onRequestStoragePermission = onRequestStoragePermission,
                     onOpenPlayer = { navController.navigate(Routes.PLAYER) },
                 )
             }

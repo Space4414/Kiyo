@@ -41,6 +41,46 @@ source of ground truth for "what changed and why" across sessions.
 
 ---
 
+### 2026-05-22T16:00:00Z — Feature: Release Keystore + Library Permission Empty-State
+
+**Agent:** Main Agent (Replit)
+**Motivation:** User requested (1) a proper release keystore so Stable APKs are production-signed, and (2) a permission-denied empty state in the Library screen so the app handles storage denial gracefully.
+
+#### Keystore
+
+- Generated 4096-bit RSA PKCS12 keystore via OpenSSL. Alias: `kiyo-release-key` · 10-year validity.
+- 4 GitHub Secrets uploaded via `gh secret set`: `SIGNING_KEYSTORE_BASE64`, `SIGNING_STORE_PASSWORD`, `SIGNING_KEY_ALIAS`, `SIGNING_KEY_PASSWORD`.
+- `build.gradle.kts`: new `signingConfigs.release` reads those env vars; falls back to debug keystore locally.
+- `stable.yml`: decodes base64 keystore to disk; passes 4 env vars to `assembleStableRelease`.
+
+#### Permission Empty-State
+
+- `PlayerViewModel`: `storagePermissionGranted: StateFlow<Boolean>` + `updateStoragePermission(Boolean)` — triggers `refreshLibrary()` on denied→granted transition only.
+- `MainActivity`: syncs state on `onCreate()` and in the launcher callback; passes `requestStoragePermission` callback to NavGraph.
+- `KiyoNavGraph`: accepts `onRequestStoragePermission`; observes `storagePermissionGranted` from ViewModel.
+- `LibraryScreen`: three-state content switch: (1) `PermissionEmptyState` with "Grant Access" button when denied, (2) empty-library when no tracks, (3) normal track list.
+
+#### Files Modified
+
+| Action | Path | What Changed |
+|--------|------|--------------|
+| MOD | `app/build.gradle.kts` | `signingConfigs.release` block; `buildTypes.release` uses it when env vars present |
+| MOD | `.github/workflows/stable.yml` | Keystore decode step + 4 signing env vars for Gradle |
+| MOD | `app/.../ui/viewmodel/PlayerViewModel.kt` | `storagePermissionGranted` StateFlow + `updateStoragePermission()` |
+| MOD | `app/.../MainActivity.kt` | Syncs permission state to ViewModel + passes callback to NavGraph |
+| MOD | `app/.../ui/navigation/KiyoNavGraph.kt` | `onRequestStoragePermission` param + permission state observation |
+| MOD | `app/.../ui/screen/LibraryScreen.kt` | `PermissionEmptyState` composable + three-way content switch |
+
+#### Notes for Future Agents
+
+- **Keystore backup**: Only in `SIGNING_KEYSTORE_BASE64` secret. If lost, Play Store updates for the stable track require a new app listing. Export and keep a safe copy.
+- **Keystore type**: PKCS12 — `storeType = "PKCS12"` is explicit in `build.gradle.kts` to prevent Gradle auto-detection issues.
+- **"Never ask again" UX**: "Open Settings" button currently calls the same launcher (silent fail). Future: detect via `shouldShowRequestPermissionRationale()` and route to `ACTION_APPLICATION_DETAILS_SETTINGS`.
+- **`collectAsStateWithLifecycle`**: Used in `KiyoNavGraph`; available transitively via `lifecycle-runtime-ktx:2.8.0`.
+
+---
+
+
 ### 2026-05-22T15:00:00Z — Feature: Three-track CI/CD workflows + ABI-split APKs
 
 **Agent:** Main Agent (Replit)
