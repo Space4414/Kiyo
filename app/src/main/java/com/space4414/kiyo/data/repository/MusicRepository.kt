@@ -1,5 +1,6 @@
 package com.space4414.kiyo.data.repository
 
+import android.util.Log
 import com.space4414.kiyo.data.db.dao.ArtistDao
 import com.space4414.kiyo.data.db.dao.TrackDao
 import com.space4414.kiyo.data.db.entity.ArtistEntity
@@ -11,6 +12,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
+
+private const val TAG = "MusicRepository"
 
 @Singleton
 class MusicRepository @Inject constructor(
@@ -32,64 +35,77 @@ class MusicRepository @Inject constructor(
         trackDao.observeByAlbum(albumId)
 
     /**
-     * Full library sync:
-     * 1. Scans MediaStore for audio files.
-     * 2. Parses each track's raw artist tag into individual artist names
-     *    (using the Poweramp-style [ArtistParser]).
-     * 3. Upserts tracks, upserts artists, writes cross-ref rows.
-     * 4. Prunes stale tracks no longer present on disk.
+     * Full library sync.
+     *
+     * Safely guarded — returns without throwing on:
+     *  - [SecurityException]: storage permission not yet granted (Android 6+)
+     *  - Any other scan / DB exception: logged, sync aborted cleanly
+     *
+     * Callers should retry after storage permission is granted.
      */
     suspend fun syncLibrary() = withContext(Dispatchers.IO) {
-        val rawTracks = scanner.scan()
+        val rawTracks = try {
+            scanner.scan()
+        } catch (e: SecurityException) {
+            Log.w(TAG, "Storage permission not granted — scan skipped: ${e.message}")
+            return@withContext
+        } catch (e: Exception) {
+            Log.e(TAG, "MediaStore scan failed", e)
+            return@withContext
+        }
+
+        if (rawTracks.isEmpty()) return@withContext
+
         val liveIds = rawTracks.map { it.mediaStoreId }
 
         for (raw in rawTracks) {
-            val trackId: Long = run {
-                val existing = trackDao.getByMediaStoreId(raw.mediaStoreId)
-                if (existing != null) {
-                    existing.id
-                } else {
-                    trackDao.insert(
-                        TrackEntity(
-                            mediaStoreId = raw.mediaStoreId,
-                            title = raw.title,
-                            rawArtist = raw.artist,
-                            album = raw.album,
-                            albumId = raw.albumId,
-                            durationMs = raw.durationMs,
-                            filePath = raw.filePath,
-                            trackNumber = raw.trackNumber,
-                            year = raw.year,
+            try {
+                val trackId: Long = run {
+                    val existing = trackDao.getByMediaStoreId(raw.mediaStoreId)
+                    if (existing != null) {
+                        existing.id
+                    } else {
+                        trackDao.insert(
+                            TrackEntity(
+                                mediaStoreId = raw.mediaStoreId,
+                                title = raw.title,
+                                rawArtist = raw.artist,
+                                album = raw.album,
+                                albumId = raw.albumId,
+                                durationMs = raw.durationMs,
+                                filePath = raw.filePath,
+                                trackNumber = raw.trackNumber,
+                                year = raw.year,
+                            )
                         )
-                    )
+                    }
                 }
-            }
 
-            // Parse multi-artist tag → individual artist names
-            val parsedNames = artistParser.parse(raw.artist)
-            val crossRefs = parsedNames.mapNotNull { name ->
-                val artistId: Long = run {
-                    artistDao.getByName(name)?.id
-                        ?: artistDao.insert(ArtistEntity(name = name))
-                            .takeIf { it > 0 }
-                        ?: artistDao.getByName(name)?.id
-                        ?: return@mapNotNull null
+                val parsedNames = artistParser.parse(raw.artist)
+                val crossRefs = parsedNames.mapNotNull { name ->
+                    val artistId: Long = run {
+                        artistDao.getByName(name)?.id
+                            ?: artistDao.insert(ArtistEntity(name = name))
+                                .takeIf { it > 0 }
+                            ?: artistDao.getByName(name)?.id
+                            ?: return@mapNotNull null
+                    }
+                    TrackArtistCrossRef(trackId = trackId, artistId = artistId)
                 }
-                TrackArtistCrossRef(trackId = trackId, artistId = artistId)
-            }
 
-            if (crossRefs.isNotEmpty()) {
-                trackDao.insertCrossRefs(crossRefs)
+                if (crossRefs.isNotEmpty()) trackDao.insertCrossRefs(crossRefs)
+            } catch (e: Exception) {
+                Log.w(TAG, "Skipping track '${raw.title}': ${e.message}")
             }
         }
 
-        // Remove stale tracks
-        if (liveIds.isNotEmpty()) {
-            trackDao.pruneOrphaned(liveIds)
+        try {
+            if (liveIds.isNotEmpty()) trackDao.pruneOrphaned(liveIds)
+            artistDao.refreshTrackCounts()
+            artistDao.deleteOrphaned()
+        } catch (e: Exception) {
+            Log.w(TAG, "Post-scan cleanup failed: ${e.message}")
         }
-
-        artistDao.refreshTrackCounts()
-        artistDao.deleteOrphaned()
     }
 
     suspend fun incrementPlayCount(trackId: Long) =

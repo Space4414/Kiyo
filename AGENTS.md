@@ -41,6 +41,39 @@ source of ground truth for "what changed and why" across sessions.
 
 ---
 
+### 2026-05-22T14:00:00Z — Fix: Android 7 startup crash (SecurityException + unguarded Future)
+
+**Agent:** Main Agent (Replit)
+**Motivation:** User reported app crashes immediately on Android 7 (API 24) — black screen then close.
+
+**Root causes identified:**
+1. `READ_EXTERNAL_STORAGE` is a dangerous permission requiring runtime grant on API 23+. The app started `syncLibrary()` immediately without the permission being granted, causing `ContentResolver.query()` to throw `SecurityException` which escaped a bare `launch {}` block and crashed the process via the thread's `UncaughtExceptionHandler`.
+2. `controllerFuture?.get()` inside the `ListenableFuture` listener was not guarded — if Media3 failed to bind the service, calling `.get()` throws `ExecutionException` on the calling thread (which may be Main), crashing the app.
+
+**Fix summary:**
+- `MusicRepository.syncLibrary()`: wrapped `scanner.scan()` in `try/catch(SecurityException)` and general `Exception`; scan returns early with a `Log.w` instead of throwing.
+- `PlayerViewModel`: wrapped `controllerFuture?.get()` in `try/catch`; wrapped the `launch { syncLibrary() }` body in `try/catch`; exposed `refreshLibrary()` as a public method.
+- `MainActivity`: added `registerForActivityResult(RequestPermission)` launcher; on first run, requests `READ_MEDIA_AUDIO` (API 33+) or `READ_EXTERNAL_STORAGE` (API 21-32); calls `playerViewModel.refreshLibrary()` on grant. `viewModels()` and `hiltViewModel()` both resolve to the same ViewModel instance via Activity's `ViewModelStore`.
+
+**State after:** CI triggered — awaiting result.
+
+#### Files Modified
+
+| Action | Path | What Changed |
+|--------|------|--------------|
+| MOD | `app/src/main/java/com/space4414/kiyo/MainActivity.kt` | Added `storagePermissionLauncher`, `checkAndRequestStoragePermission()`, API-level permission selection |
+| MOD | `app/src/main/java/com/space4414/kiyo/data/repository/MusicRepository.kt` | `syncLibrary()` wrapped in try-catch for `SecurityException` + general `Exception`; per-track catch to skip malformed rows; post-scan cleanup catch |
+| MOD | `app/src/main/java/com/space4414/kiyo/ui/viewmodel/PlayerViewModel.kt` | `connectToService()` wrapped in try-catch; listener `get()` wrapped in try-catch; `refreshLibrary()` public method added; init-block `syncLibrary()` call wrapped |
+
+#### Notes for Future Agents
+
+- **Permission flow**: `MainActivity` requests permission → on grant → `playerViewModel.refreshLibrary()`. The ViewModel's `init` block's scan is safe on first launch even without permission (returns empty silently).
+- **`viewModels()` + `hiltViewModel()`**: Both use the Activity's `ViewModelStore`; resolves to the same instance — this is the correct pattern for getting a ViewModel in Activity AND Compose scope simultaneously.
+- **`ListenableFuture.get()` in Media3**: Always wrap in try/catch — it throws `ExecutionException` on failure, not a graceful null.
+- **`viewModelScope.launch` exception behaviour**: With `SupervisorJob`, unhandled exceptions from `launch` children escape to the thread's `UncaughtExceptionHandler`. Always put `try/catch` inside `launch {}` blocks that perform I/O.
+
+---
+
 ### 2026-05-22T13:06:00Z — Fix: SortedMap compilation error in LastFmScrobbler
 
 **Agent:** Main Agent (Replit)

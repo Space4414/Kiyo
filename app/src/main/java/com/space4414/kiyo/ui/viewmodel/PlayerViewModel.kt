@@ -2,6 +2,7 @@ package com.space4414.kiyo.ui.viewmodel
 
 import android.app.Application
 import android.content.ComponentName
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.media3.common.MediaItem
@@ -18,6 +19,8 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+
+private const val TAG = "PlayerViewModel"
 
 data class PlayerUiState(
     val isPlaying: Boolean = false,
@@ -44,20 +47,23 @@ class PlayerViewModel @Inject constructor(
 
     init {
         connectToService()
-        viewModelScope.launch { repository.syncLibrary() }
+        // Initial sync — guarded internally against SecurityException.
+        // If storage permission isn't granted yet, syncLibrary() returns safely.
+        // MainActivity calls refreshLibrary() once the user grants permission.
+        refreshLibrary()
     }
 
-    private fun connectToService() {
-        val ctx = getApplication<Application>()
-        val token = SessionToken(
-            ctx,
-            ComponentName(ctx, PlaybackService::class.java)
-        )
-        controllerFuture = MediaController.Builder(ctx, token).buildAsync()
-        controllerFuture?.addListener({
-            controller = controllerFuture?.get()
-            controller?.addListener(playerListener)
-        }, MoreExecutors.directExecutor())
+    // ─── Public API ───────────────────────────────────────────────────────────
+
+    /** Trigger a MediaStore library scan. Safe to call at any time — no-op on SecurityException. */
+    fun refreshLibrary() {
+        viewModelScope.launch {
+            try {
+                repository.syncLibrary()
+            } catch (e: Exception) {
+                Log.e(TAG, "Library sync error", e)
+            }
+        }
     }
 
     fun playTrack(track: TrackEntity) {
@@ -76,7 +82,10 @@ class PlayerViewModel @Inject constructor(
         ctrl.prepare()
         ctrl.play()
         _uiState.update { it.copy(currentTrack = track, durationMs = track.durationMs) }
-        viewModelScope.launch { repository.incrementPlayCount(track.id) }
+        viewModelScope.launch {
+            try { repository.incrementPlayCount(track.id) }
+            catch (e: Exception) { Log.w(TAG, "incrementPlayCount failed", e) }
+        }
     }
 
     fun playAll(tracks: List<TrackEntity>, startIndex: Int = 0) {
@@ -108,10 +117,38 @@ class PlayerViewModel @Inject constructor(
     fun skipNext() { controller?.seekToNextMediaItem() }
     fun skipPrev() { controller?.seekToPreviousMediaItem() }
 
+    // ─── MediaController lifecycle ────────────────────────────────────────────
+
+    private fun connectToService() {
+        val ctx = getApplication<Application>()
+        try {
+            val token = SessionToken(
+                ctx,
+                ComponentName(ctx, PlaybackService::class.java)
+            )
+            controllerFuture = MediaController.Builder(ctx, token).buildAsync()
+            controllerFuture?.addListener({
+                try {
+                    controller = controllerFuture?.get()
+                    controller?.addListener(playerListener)
+                } catch (e: Exception) {
+                    // Service not available yet (e.g. process just started) — playback
+                    // will not work until the user taps play, which re-binds the service.
+                    Log.w(TAG, "MediaController connection failed: ${e.message}")
+                }
+            }, MoreExecutors.directExecutor())
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to build MediaController", e)
+        }
+    }
+
+    // ─── Player listener ──────────────────────────────────────────────────────
+
     private val playerListener = object : Player.Listener {
         override fun onIsPlayingChanged(isPlaying: Boolean) {
             _uiState.update { it.copy(isPlaying = isPlaying) }
         }
+
         override fun onPositionDiscontinuity(
             oldPosition: Player.PositionInfo,
             newPosition: Player.PositionInfo,
@@ -123,7 +160,10 @@ class PlayerViewModel @Inject constructor(
 
     override fun onCleared() {
         controller?.removeListener(playerListener)
-        controllerFuture?.let { MediaController.releaseFuture(it) }
+        controllerFuture?.let {
+            try { MediaController.releaseFuture(it) }
+            catch (e: Exception) { Log.w(TAG, "releaseFuture error", e) }
+        }
         super.onCleared()
     }
 }
