@@ -9,30 +9,51 @@ package com.space4414.kiyo.ui.settings
  */
 data class AppSettings(
     // ── Performance / Low-end ──────────────────────────────────────────────
-    /** Master toggle: enables all sub-settings for low-end optimization. */
     val performanceModeEnabled: Boolean = false,
 
     // ── Blur ──────────────────────────────────────────────────────────────
-    /** Gaussian blur on the ambient backdrop. Off in performance mode. */
     val blurEnabled: Boolean = true,
-    /** Blur radius in dp applied to the ambient gradient layer. */
     val blurRadiusDp: Int = 20,
-    /** Quality tier — controls final radius scaling. */
     val blurQuality: BlurQuality = BlurQuality.MEDIUM,
 
     // ── Animations ────────────────────────────────────────────────────────
-    /** Play enter/exit transition animations. Off in performance mode. */
     val animationsEnabled: Boolean = true,
-    /** Use shorter durations (half) for all animations. */
     val reducedMotion: Boolean = false,
 
     // ── Background ────────────────────────────────────────────────────────
-    /** Draw coloured radial gradient blobs behind cards. Off in perf mode. */
     val ambientGradientsEnabled: Boolean = true,
-    /** Use a plain solid colour instead of the layered gradient backdrop. */
     val solidBackgroundEnabled: Boolean = false,
+
+    // ── Audio Crossfade ────────────────────────────────────────────────────
+    /** Enable 300 ms linear fade-in on track transitions. */
+    val crossfadeEnabled: Boolean = true,
+
+    // ── Multi-artist parser ────────────────────────────────────────────────
+    /**
+     * Comma-separated list of custom delimiter tokens added by the user,
+     * beyond the built-in defaults (";", "//", "feat.", "ft.", " & ", etc.).
+     * Example: "vs,prod. by,presents"
+     */
+    val customDelimiters: String = "",
+
+    /**
+     * Comma-separated list of exact artist names that must never be split,
+     * added by the user beyond the built-in whitelist (AC/DC, etc.).
+     */
+    val customUnsplitExceptions: String = "",
+
+    // ── Last.fm ────────────────────────────────────────────────────────────
+    val lastFmApiKey: String = "",
+    val lastFmApiSecret: String = "",
+    val lastFmUsername: String = "",
+    val lastFmSessionKey: String = "",
+
+    // ── Discord RPC ────────────────────────────────────────────────────────
+    /** Enable Discord Rich Presence tracking via webhook. */
+    val discordRpcEnabled: Boolean = false,
+    /** Discord webhook or bridge endpoint URL. */
+    val discordWebhookUrl: String = "",
 ) {
-    /** Effective blur radius after quality scaling, or 0 when disabled. */
     val effectiveBlurRadius: Int get() {
         if (!blurEnabled || performanceModeEnabled) return 0
         val scale = when (blurQuality) {
@@ -43,11 +64,16 @@ data class AppSettings(
         return (blurRadiusDp * scale).toInt().coerceAtLeast(0)
     }
 
-    /** True when any animation shortening is requested. */
     val isMotionReduced: Boolean get() = reducedMotion || performanceModeEnabled
-
-    /** True when gradient backdrop should be drawn. */
     val showGradients: Boolean get() = ambientGradientsEnabled && !performanceModeEnabled && !solidBackgroundEnabled
+
+    /** Parsed list of custom delimiter tokens (non-blank, trimmed). */
+    val parsedCustomDelimiters: List<String> get() =
+        customDelimiters.split(",").map { it.trim() }.filter { it.isNotBlank() }
+
+    /** Parsed list of custom unsplit exceptions (non-blank, trimmed). */
+    val parsedCustomExceptions: Set<String> get() =
+        customUnsplitExceptions.split(",").map { it.trim() }.filter { it.isNotBlank() }.toSet()
 }
 
 enum class BlurQuality { LOW, MEDIUM, HIGH }

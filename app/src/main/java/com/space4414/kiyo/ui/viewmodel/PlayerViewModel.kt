@@ -16,6 +16,8 @@ import com.space4414.kiyo.data.db.entity.TrackEntity
 import com.space4414.kiyo.data.repository.MusicRepository
 import com.space4414.kiyo.service.PlaybackService
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -57,6 +59,7 @@ class PlayerViewModel @Inject constructor(
 
     private var controllerFuture: ListenableFuture<MediaController>? = null
     private var controller: MediaController? = null
+    private var positionPollingJob: Job? = null
 
     init {
         connectToService()
@@ -85,20 +88,11 @@ class PlayerViewModel @Inject constructor(
 
     fun playTrack(track: TrackEntity) {
         val ctrl = controller ?: return
-        val mediaItem = MediaItem.Builder()
-            .setUri(track.filePath)
-            .setMediaMetadata(
-                MediaMetadata.Builder()
-                    .setTitle(track.title)
-                    .setArtist(track.rawArtist)
-                    .setAlbumTitle(track.album)
-                    .build()
-            )
-            .build()
+        val mediaItem = buildMediaItem(track)
         ctrl.setMediaItem(mediaItem)
         ctrl.prepare()
         ctrl.play()
-        _uiState.update { it.copy(currentTrack = track, durationMs = track.durationMs) }
+        _uiState.update { it.copy(currentTrack = track, durationMs = track.durationMs, positionMs = 0L) }
         viewModelScope.launch {
             try { repository.incrementPlayCount(track.id) }
             catch (e: Exception) { Log.w(TAG, "incrementPlayCount failed", e) }
@@ -107,22 +101,18 @@ class PlayerViewModel @Inject constructor(
 
     fun playAll(tracks: List<TrackEntity>, startIndex: Int = 0) {
         val ctrl = controller ?: return
-        val items = tracks.map { track ->
-            MediaItem.Builder()
-                .setUri(track.filePath)
-                .setMediaMetadata(
-                    MediaMetadata.Builder()
-                        .setTitle(track.title)
-                        .setArtist(track.rawArtist)
-                        .setAlbumTitle(track.album)
-                        .build()
-                )
-                .build()
-        }
+        val items = tracks.map { buildMediaItem(it) }
         ctrl.setMediaItems(items, startIndex, 0L)
         ctrl.prepare()
         ctrl.play()
-        _uiState.update { it.copy(queue = tracks, currentTrack = tracks.getOrNull(startIndex)) }
+        _uiState.update {
+            it.copy(
+                queue = tracks,
+                currentTrack = tracks.getOrNull(startIndex),
+                durationMs = tracks.getOrNull(startIndex)?.durationMs ?: 0L,
+                positionMs = 0L,
+            )
+        }
         tracks.getOrNull(startIndex)?.let { track ->
             viewModelScope.launch {
                 try { repository.incrementPlayCount(track.id) }
@@ -136,7 +126,11 @@ class PlayerViewModel @Inject constructor(
         if (ctrl.isPlaying) ctrl.pause() else ctrl.play()
     }
 
-    fun seekTo(positionMs: Long) { controller?.seekTo(positionMs) }
+    fun seekTo(positionMs: Long) {
+        controller?.seekTo(positionMs)
+        _uiState.update { it.copy(positionMs = positionMs) }
+    }
+
     fun skipNext() { controller?.seekToNextMediaItem() }
     fun skipPrev() { controller?.seekToPreviousMediaItem() }
 
@@ -163,6 +157,7 @@ class PlayerViewModel @Inject constructor(
                 try {
                     controller = controllerFuture?.get()
                     controller?.addListener(playerListener)
+                    startPositionPolling()
                 } catch (e: Exception) {
                     Log.w(TAG, "MediaController connection failed: ${e.message}")
                 }
@@ -172,10 +167,74 @@ class PlayerViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Polls ExoPlayer's current position every second while playing.
+     * This drives the seek bar's smooth real-time progress.
+     */
+    private fun startPositionPolling() {
+        positionPollingJob?.cancel()
+        positionPollingJob = viewModelScope.launch {
+            while (true) {
+                delay(1_000L)
+                val ctrl = controller ?: continue
+                if (ctrl.isPlaying) {
+                    val pos = ctrl.currentPosition
+                    val dur = ctrl.duration.takeIf { it > 0L }
+                    _uiState.update { s ->
+                        s.copy(
+                            positionMs = pos,
+                            durationMs = if (dur != null && dur > 0L) dur else s.durationMs,
+                        )
+                    }
+                }
+            }
+        }
+    }
+
     private val playerListener = object : Player.Listener {
+
         override fun onIsPlayingChanged(isPlaying: Boolean) {
             _uiState.update { it.copy(isPlaying = isPlaying) }
         }
+
+        /**
+         * Fires whenever ExoPlayer auto-advances to the next/previous track,
+         * or when a new item is set manually. This is the critical fix for the
+         * frozen UI bug: we sync currentTrack from the queue by media index.
+         */
+        override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+            val ctrl = controller ?: return
+            val idx = ctrl.currentMediaItemIndex
+            val track = _uiState.value.queue.getOrNull(idx)
+            _uiState.update { s ->
+                s.copy(
+                    currentTrack = track ?: s.currentTrack,
+                    durationMs = track?.durationMs ?: s.durationMs,
+                    positionMs = 0L,
+                )
+            }
+            // Increment play count for auto-advanced tracks
+            if (track != null && reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO) {
+                viewModelScope.launch {
+                    try { repository.incrementPlayCount(track.id) }
+                    catch (e: Exception) { Log.w(TAG, "incrementPlayCount on auto-advance failed", e) }
+                }
+            }
+        }
+
+        /**
+         * Called when the player's state changes (IDLE, BUFFERING, READY, ENDED).
+         * READY state is when ExoPlayer knows the real duration — we capture it here.
+         */
+        override fun onPlaybackStateChanged(playbackState: Int) {
+            if (playbackState == Player.STATE_READY) {
+                val dur = controller?.duration?.takeIf { it > 0L }
+                if (dur != null) {
+                    _uiState.update { it.copy(durationMs = dur) }
+                }
+            }
+        }
+
         override fun onPositionDiscontinuity(
             oldPosition: Player.PositionInfo,
             newPosition: Player.PositionInfo,
@@ -186,6 +245,7 @@ class PlayerViewModel @Inject constructor(
     }
 
     override fun onCleared() {
+        positionPollingJob?.cancel()
         controller?.removeListener(playerListener)
         controllerFuture?.let {
             try { MediaController.releaseFuture(it) }
@@ -193,4 +253,18 @@ class PlayerViewModel @Inject constructor(
         }
         super.onCleared()
     }
+
+    // ─── Helpers ─────────────────────────────────────────────────────────────
+
+    private fun buildMediaItem(track: TrackEntity): MediaItem =
+        MediaItem.Builder()
+            .setUri(track.filePath)
+            .setMediaMetadata(
+                MediaMetadata.Builder()
+                    .setTitle(track.title)
+                    .setArtist(track.rawArtist)
+                    .setAlbumTitle(track.album)
+                    .build()
+            )
+            .build()
 }

@@ -20,12 +20,21 @@ class SettingsViewModel @Inject constructor(
         AppSettings(),
     )
 
-    fun setPerformanceMode(v: Boolean) = viewModelScope.launch { repo.setPerformanceMode(v) }
-    fun setBlurEnabled(v: Boolean)     = viewModelScope.launch { repo.setBlurEnabled(v) }
-    fun setBlurRadius(v: Int)          = viewModelScope.launch { repo.setBlurRadius(v) }
-    fun setBlurQuality(v: BlurQuality) = viewModelScope.launch { repo.setBlurQuality(v) }
-    fun setAnimationsEnabled(v: Boolean) = viewModelScope.launch { repo.setAnimationsEnabled(v) }
-    fun setReducedMotion(v: Boolean)   = viewModelScope.launch { repo.setReducedMotion(v) }
-    fun setAmbientGradients(v: Boolean)= viewModelScope.launch { repo.setAmbientGradients(v) }
-    fun setSolidBackground(v: Boolean) = viewModelScope.launch { repo.setSolidBackground(v) }
+    fun setPerformanceMode(v: Boolean)       = viewModelScope.launch { repo.setPerformanceMode(v) }
+    fun setBlurEnabled(v: Boolean)           = viewModelScope.launch { repo.setBlurEnabled(v) }
+    fun setBlurRadius(v: Int)                = viewModelScope.launch { repo.setBlurRadius(v) }
+    fun setBlurQuality(v: BlurQuality)       = viewModelScope.launch { repo.setBlurQuality(v) }
+    fun setAnimationsEnabled(v: Boolean)     = viewModelScope.launch { repo.setAnimationsEnabled(v) }
+    fun setReducedMotion(v: Boolean)         = viewModelScope.launch { repo.setReducedMotion(v) }
+    fun setAmbientGradients(v: Boolean)      = viewModelScope.launch { repo.setAmbientGradients(v) }
+    fun setSolidBackground(v: Boolean)       = viewModelScope.launch { repo.setSolidBackground(v) }
+    fun setCrossfadeEnabled(v: Boolean)      = viewModelScope.launch { repo.setCrossfadeEnabled(v) }
+    fun setCustomDelimiters(v: String)       = viewModelScope.launch { repo.setCustomDelimiters(v) }
+    fun setCustomUnsplitExceptions(v: String)= viewModelScope.launch { repo.setCustomUnsplitExceptions(v) }
+    fun setLastFmApiKey(v: String)           = viewModelScope.launch { repo.setLastFmApiKey(v) }
+    fun setLastFmApiSecret(v: String)        = viewModelScope.launch { repo.setLastFmApiSecret(v) }
+    fun setLastFmUsername(v: String)         = viewModelScope.launch { repo.setLastFmUsername(v) }
+    fun setLastFmSessionKey(v: String)       = viewModelScope.launch { repo.setLastFmSessionKey(v) }
+    fun setDiscordRpcEnabled(v: Boolean)     = viewModelScope.launch { repo.setDiscordRpcEnabled(v) }
+    fun setDiscordWebhookUrl(v: String)      = viewModelScope.launch { repo.setDiscordWebhookUrl(v) }
 }

@@ -1,45 +1,45 @@
 package com.space4414.kiyo.ui.component
 
-import android.content.ContentUris
 import android.net.Uri
-import android.os.Build
-import android.provider.MediaStore
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.MusicNote
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import android.content.ContentUris
 import coil.compose.SubcomposeAsyncImage
 import coil.compose.SubcomposeAsyncImageContent
 import coil.request.CachePolicy
 import coil.request.ImageRequest
 import com.space4414.kiyo.ui.theme.KiyoCharcoalLight
+import com.space4414.kiyo.ui.theme.KiyoTeal
 
 /**
  * Album art thumbnail box.
  *
- * Loads album art from Android MediaStore via Coil. Uses two complementary
- * content URI strategies for maximum compatibility across all API levels:
+ * Loads embedded album art from Android MediaStore via Coil.
+ * Uses the canonical content://media/external/audio/albumart/{albumId} URI.
  *
- *  • Primary:  `content://media/external/audio/albumart/{albumId}`
- *              Standard legacy album art path — works API 16–34+.
- *  • Fallback: `MediaStore.Audio.Albums.EXTERNAL_CONTENT_URI` with album ID
- *              appended — explicit MediaStore API path.
+ * Fallback hierarchy:
+ *  1. Album art from MediaStore (via albumId)
+ *  2. Glass-style letter placeholder showing the first character of [fallbackLabel]
+ *  3. Teal question-mark text if both albumId <= 0 and fallbackLabel is blank
  *
- * Falls back to a teal MusicNote icon if neither URI returns data
- * (file has no embedded cover art, or album ID is unknown).
+ * The letter placeholder matches the frosted-glass aesthetic — dark background,
+ * teal initial letter — without needing any bitmap asset.
  */
 @Composable
 fun AlbumArtBox(
@@ -47,6 +47,7 @@ fun AlbumArtBox(
     modifier: Modifier = Modifier,
     cornerRadius: Dp = 24.dp,
     iconSize: Dp = 48.dp,
+    fallbackLabel: String = "",
 ) {
     val ctx = LocalContext.current
     val shape = RoundedCornerShape(cornerRadius)
@@ -78,22 +79,29 @@ fun AlbumArtBox(
                 contentDescription = "Album Art",
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop,
-                loading = { AlbumArtFallback(iconSize) },
-                error = { AlbumArtFallback(iconSize) },
+                loading = { AlbumArtFallback(fallbackLabel, iconSize) },
+                error = { AlbumArtFallback(fallbackLabel, iconSize) },
                 success = { SubcomposeAsyncImageContent() },
             )
         } else {
-            AlbumArtFallback(iconSize)
+            AlbumArtFallback(fallbackLabel, iconSize)
         }
     }
 }
 
+/**
+ * Glass-style letter placeholder.
+ * Shows the uppercase first letter of [label] in teal on the charcoal background.
+ * Falls back to "?" if the label is blank.
+ */
 @Composable
-internal fun AlbumArtFallback(iconSize: Dp = 48.dp) {
-    Icon(
-        Icons.Default.MusicNote,
-        contentDescription = null,
-        modifier = Modifier.size(iconSize),
-        tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
+internal fun AlbumArtFallback(label: String = "", iconSize: Dp = 48.dp) {
+    val letter = label.firstOrNull { it.isLetterOrDigit() }?.uppercaseChar()?.toString() ?: "?"
+    val fontSize = (iconSize.value * 0.65f).coerceIn(10f, 64f)
+    Text(
+        text = letter,
+        fontSize = fontSize.sp,
+        fontWeight = FontWeight.Bold,
+        color = KiyoTeal.copy(alpha = 0.85f),
     )
 }

@@ -1,69 +1,41 @@
 package com.space4414.kiyo.ui.screen
 
+import androidx.annotation.DrawableRes
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AutoGraph
-import androidx.compose.material.icons.filled.BlurOn
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowLeft
-import androidx.compose.material.icons.filled.Memory
-import androidx.compose.material.icons.filled.Movie
-import androidx.compose.material.icons.filled.Palette
-import androidx.compose.material.icons.filled.Speed
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderDefaults
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.space4414.kiyo.R
 import com.space4414.kiyo.ui.component.AmbientBackdrop
 import com.space4414.kiyo.ui.component.FrostedCard
 import com.space4414.kiyo.ui.settings.AppSettings
 import com.space4414.kiyo.ui.settings.BlurQuality
 import com.space4414.kiyo.ui.settings.LocalAppSettings
 import com.space4414.kiyo.ui.settings.SettingsViewModel
-import com.space4414.kiyo.ui.theme.KiyoAmber
-import com.space4414.kiyo.ui.theme.KiyoError
-import com.space4414.kiyo.ui.theme.KiyoOnSurfaceMuted
-import com.space4414.kiyo.ui.theme.KiyoPurple
-import com.space4414.kiyo.ui.theme.KiyoSuccess
-import com.space4414.kiyo.ui.theme.KiyoTeal
+import com.space4414.kiyo.ui.theme.*
 
 @Composable
 fun SettingsScreen(
@@ -72,6 +44,7 @@ fun SettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val settings by viewModel.settings.collectAsState()
+    val focusManager = LocalFocusManager.current
 
     Box(modifier = modifier.fillMaxSize()) {
         AmbientBackdrop(modifier = Modifier.fillMaxSize())
@@ -91,6 +64,10 @@ fun SettingsScreen(
                 item { BlurSection(settings = settings, vm = viewModel) }
                 item { AnimationSection(settings = settings, vm = viewModel) }
                 item { BackgroundSection(settings = settings, vm = viewModel) }
+                item { CrossfadeSection(settings = settings, vm = viewModel) }
+                item { DelimiterSection(settings = settings, vm = viewModel, focusManager = focusManager) }
+                item { LastFmSection(settings = settings, vm = viewModel, focusManager = focusManager) }
+                item { DiscordSection(settings = settings, vm = viewModel, focusManager = focusManager) }
                 item { Spacer(Modifier.height(80.dp)) }
             }
         }
@@ -107,7 +84,7 @@ private fun SettingsTopBar(onBack: () -> Unit) {
     ) {
         IconButton(onClick = onBack) {
             Icon(
-                Icons.Default.KeyboardArrowLeft,
+                painter = painterResource(R.drawable.ic_kiyo_arrow_back),
                 contentDescription = "Back",
                 modifier = Modifier.size(28.dp),
                 tint = MaterialTheme.colorScheme.onSurface,
@@ -122,10 +99,12 @@ private fun SettingsTopBar(onBack: () -> Unit) {
     }
 }
 
+// ─── Sections ────────────────────────────────────────────────────────────────
+
 @Composable
 private fun PerformanceSection(settings: AppSettings, vm: SettingsViewModel) {
-    SettingsSection(
-        icon = Icons.Default.Speed,
+    DrawableSettingsSection(
+        icon = R.drawable.ic_kiyo_speed,
         iconTint = KiyoError,
         title = "Low-end Device Mode",
         description = "Disables blur, gradients, and heavy animations for older or low-RAM devices.",
@@ -143,11 +122,11 @@ private fun PerformanceSection(settings: AppSettings, vm: SettingsViewModel) {
 @Composable
 private fun BlurSection(settings: AppSettings, vm: SettingsViewModel) {
     val blurForced = settings.performanceModeEnabled
-    SettingsSection(
-        icon = Icons.Default.BlurOn,
+    DrawableSettingsSection(
+        icon = R.drawable.ic_kiyo_blur_on,
         iconTint = KiyoTeal,
         title = "Gaussian Blur",
-        description = "Applies a Gaussian blur to the ambient backdrop for a frosted-glass look. Hardware-accelerated on API 31+.",
+        description = "Applies a Gaussian blur to the ambient backdrop. Hardware-accelerated on API 31+.",
         checked = settings.blurEnabled && !blurForced,
         onToggle = { if (!blurForced) vm.setBlurEnabled(it) },
         forceDisabled = blurForced,
@@ -159,10 +138,7 @@ private fun BlurSection(settings: AppSettings, vm: SettingsViewModel) {
                 valueRange = 4f..40f,
                 onValueChange = { vm.setBlurRadius(it.toInt()) },
             )
-            SubSettingRow(
-                label = "Blur quality",
-                description = "Higher quality uses more GPU.",
-            ) {
+            SubSettingRow(label = "Blur quality", description = "Higher quality uses more GPU.") {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     BlurQuality.values().forEach { q ->
                         QualityChip(
@@ -179,8 +155,8 @@ private fun BlurSection(settings: AppSettings, vm: SettingsViewModel) {
 
 @Composable
 private fun AnimationSection(settings: AppSettings, vm: SettingsViewModel) {
-    SettingsSection(
-        icon = Icons.Default.Movie,
+    DrawableSettingsSection(
+        icon = R.drawable.ic_kiyo_movie,
         iconTint = KiyoPurple,
         title = "Animations",
         description = "Enable enter/exit transitions and spring animations throughout the app.",
@@ -201,11 +177,11 @@ private fun AnimationSection(settings: AppSettings, vm: SettingsViewModel) {
 
 @Composable
 private fun BackgroundSection(settings: AppSettings, vm: SettingsViewModel) {
-    SettingsSection(
-        icon = Icons.Default.Palette,
+    DrawableSettingsSection(
+        icon = R.drawable.ic_kiyo_palette,
         iconTint = KiyoAmber,
         title = "Ambient Gradients",
-        description = "Draw coloured radial gradient blobs behind the UI for depth. Disable for a solid dark background.",
+        description = "Draw coloured radial gradient blobs behind the UI for depth.",
         checked = settings.ambientGradientsEnabled && !settings.performanceModeEnabled,
         onToggle = { if (!settings.performanceModeEnabled) vm.setAmbientGradients(it) },
         forceDisabled = settings.performanceModeEnabled,
@@ -222,20 +198,158 @@ private fun BackgroundSection(settings: AppSettings, vm: SettingsViewModel) {
 }
 
 @Composable
-private fun SettingsSection(
-    icon: ImageVector,
-    iconTint: Color,
-    title: String,
-    description: String,
-    checked: Boolean,
-    onToggle: (Boolean) -> Unit,
-    forceDisabled: Boolean = false,
-    subContent: @Composable () -> Unit = {},
+private fun CrossfadeSection(settings: AppSettings, vm: SettingsViewModel) {
+    DrawableSettingsSection(
+        icon = R.drawable.ic_kiyo_graphic_eq,
+        iconTint = KiyoTeal,
+        title = "Audio Crossfade",
+        description = "Smooth 300 ms fade-in transition between tracks instead of an abrupt cut.",
+        checked = settings.crossfadeEnabled,
+        onToggle = vm::setCrossfadeEnabled,
+    )
+}
+
+@Composable
+private fun DelimiterSection(
+    settings: AppSettings,
+    vm: SettingsViewModel,
+    focusManager: androidx.compose.ui.focus.FocusManager,
 ) {
-    FrostedCard(
-        cornerRadius = 18.dp,
-        modifier = Modifier.fillMaxWidth(),
-    ) {
+    var delimiterInput by remember { mutableStateOf(settings.customDelimiters) }
+    var exceptionInput by remember { mutableStateOf(settings.customUnsplitExceptions) }
+
+    LaunchedEffect(settings.customDelimiters) { delimiterInput = settings.customDelimiters }
+    LaunchedEffect(settings.customUnsplitExceptions) { exceptionInput = settings.customUnsplitExceptions }
+
+    FrostedCard(cornerRadius = 18.dp, modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier.size(40.dp).clip(CircleShape)
+                        .background(KiyoPurple.copy(alpha = 0.15f)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_kiyo_memory),
+                        contentDescription = null, tint = KiyoPurple,
+                        modifier = Modifier.size(22.dp),
+                    )
+                }
+                Spacer(Modifier.width(12.dp))
+                Text("Artist Parser", style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface)
+            }
+            Spacer(Modifier.height(4.dp))
+            Text(
+                "Configure custom delimiter tokens and whitelist entries for the multi-artist parser. " +
+                "Separates artist tags containing tokens like \"feat.\", \"//\", \";\" etc.",
+                style = MaterialTheme.typography.bodyMedium, color = KiyoOnSurfaceMuted,
+            )
+            Spacer(Modifier.height(12.dp))
+
+            Text("Custom split tokens (comma-separated):", style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface)
+            Text("e.g. vs,prod. by,presents", style = MaterialTheme.typography.bodySmall, color = KiyoOnSurfaceMuted)
+            Spacer(Modifier.height(4.dp))
+            SettingsTextField(
+                value = delimiterInput,
+                onValueChange = { delimiterInput = it },
+                placeholder = "vs, prod. by, presents",
+                onDone = { vm.setCustomDelimiters(delimiterInput.trim()); focusManager.clearFocus() },
+            )
+
+            Spacer(Modifier.height(12.dp))
+            Text("Always-keep exceptions (comma-separated):", style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface)
+            Text("Artist names that must never be split (e.g. AC/DC).",
+                style = MaterialTheme.typography.bodySmall, color = KiyoOnSurfaceMuted)
+            Spacer(Modifier.height(4.dp))
+            SettingsTextField(
+                value = exceptionInput,
+                onValueChange = { exceptionInput = it },
+                placeholder = "AC/DC, Earth Wind & Fire",
+                onDone = { vm.setCustomUnsplitExceptions(exceptionInput.trim()); focusManager.clearFocus() },
+            )
+        }
+    }
+}
+
+@Composable
+private fun LastFmSection(
+    settings: AppSettings,
+    vm: SettingsViewModel,
+    focusManager: androidx.compose.ui.focus.FocusManager,
+) {
+    var apiKey by remember { mutableStateOf(settings.lastFmApiKey) }
+    var apiSecret by remember { mutableStateOf(settings.lastFmApiSecret) }
+    var username by remember { mutableStateOf(settings.lastFmUsername) }
+    var sessionKey by remember { mutableStateOf(settings.lastFmSessionKey) }
+
+    LaunchedEffect(settings) {
+        apiKey = settings.lastFmApiKey
+        apiSecret = settings.lastFmApiSecret
+        username = settings.lastFmUsername
+        sessionKey = settings.lastFmSessionKey
+    }
+
+    FrostedCard(cornerRadius = 18.dp, modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier.size(40.dp).clip(CircleShape)
+                        .background(KiyoError.copy(alpha = 0.15f)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_kiyo_lastfm),
+                        contentDescription = null, tint = KiyoError,
+                        modifier = Modifier.size(22.dp),
+                    )
+                }
+                Spacer(Modifier.width(12.dp))
+                Column {
+                    Text("Last.fm Scrobbling", style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface)
+                }
+            }
+            Spacer(Modifier.height(4.dp))
+            Text(
+                "Enter your Last.fm API credentials to enable scrobbling and Now Playing updates. " +
+                "Get your API key at last.fm/api/account/create",
+                style = MaterialTheme.typography.bodyMedium, color = KiyoOnSurfaceMuted,
+            )
+            Spacer(Modifier.height(12.dp))
+
+            CredentialField("API Key", apiKey, { apiKey = it }, false,
+                { vm.setLastFmApiKey(apiKey.trim()); focusManager.clearFocus() })
+            Spacer(Modifier.height(8.dp))
+            CredentialField("API Secret", apiSecret, { apiSecret = it }, true,
+                { vm.setLastFmApiSecret(apiSecret.trim()); focusManager.clearFocus() })
+            Spacer(Modifier.height(8.dp))
+            CredentialField("Username", username, { username = it }, false,
+                { vm.setLastFmUsername(username.trim()); focusManager.clearFocus() })
+            Spacer(Modifier.height(8.dp))
+            CredentialField("Session Key", sessionKey, { sessionKey = it }, true,
+                { vm.setLastFmSessionKey(sessionKey.trim()); focusManager.clearFocus() })
+
+            if (settings.lastFmApiKey.isNotBlank() && settings.lastFmSessionKey.isNotBlank()) {
+                Spacer(Modifier.height(8.dp))
+                InfoRow("Last.fm credentials configured — scrobbling active")
+            }
+        }
+    }
+}
+
+@Composable
+private fun DiscordSection(
+    settings: AppSettings,
+    vm: SettingsViewModel,
+    focusManager: androidx.compose.ui.focus.FocusManager,
+) {
+    var webhookUrl by remember { mutableStateOf(settings.discordWebhookUrl) }
+    LaunchedEffect(settings.discordWebhookUrl) { webhookUrl = settings.discordWebhookUrl }
+
+    FrostedCard(cornerRadius = 18.dp, modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -244,47 +358,101 @@ private fun SettingsSection(
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clip(CircleShape)
-                            .background(iconTint.copy(alpha = 0.15f)),
+                        modifier = Modifier.size(40.dp).clip(CircleShape)
+                            .background(Color(0xFF5865F2).copy(alpha = 0.15f)),
                         contentAlignment = Alignment.Center,
                     ) {
-                        Icon(icon, contentDescription = null, tint = iconTint, modifier = Modifier.size(22.dp))
-                    }
-                    Spacer(Modifier.width(12.dp))
-                    Column {
-                        Text(
-                            title,
-                            style = MaterialTheme.typography.titleMedium,
-                            color = if (forceDisabled) KiyoOnSurfaceMuted else MaterialTheme.colorScheme.onSurface,
+                        Icon(
+                            painter = painterResource(R.drawable.ic_kiyo_discord),
+                            contentDescription = null, tint = Color(0xFF5865F2),
+                            modifier = Modifier.size(22.dp),
                         )
                     }
+                    Spacer(Modifier.width(12.dp))
+                    Text("Discord Rich Presence", style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface)
                 }
                 Switch(
-                    checked = checked,
-                    onCheckedChange = onToggle,
-                    enabled = !forceDisabled,
+                    checked = settings.discordRpcEnabled,
+                    onCheckedChange = vm::setDiscordRpcEnabled,
                     colors = SwitchDefaults.colors(
-                        checkedThumbColor = Color.White,
-                        checkedTrackColor = KiyoTeal,
-                    ),
+                        checkedThumbColor = Color.White, checkedTrackColor = Color(0xFF5865F2)),
                 )
             }
             Spacer(Modifier.height(4.dp))
             Text(
-                description,
-                style = MaterialTheme.typography.bodyMedium,
-                color = KiyoOnSurfaceMuted,
+                "Broadcast currently playing track to Discord via a webhook or local bridge. " +
+                "Requires a running Discord RPC bridge on your network.",
+                style = MaterialTheme.typography.bodyMedium, color = KiyoOnSurfaceMuted,
             )
-            AnimatedVisibility(
-                visible = checked,
-                enter = expandVertically(),
-                exit = shrinkVertically(),
-            ) {
+
+            AnimatedVisibility(visible = settings.discordRpcEnabled,
+                enter = expandVertically(), exit = shrinkVertically()) {
                 Column(modifier = Modifier.padding(top = 12.dp)) {
-                    subContent()
+                    Text("Webhook / Bridge URL:", style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface)
+                    Spacer(Modifier.height(4.dp))
+                    SettingsTextField(
+                        value = webhookUrl,
+                        onValueChange = { webhookUrl = it },
+                        placeholder = "https://discord.com/api/webhooks/...",
+                        onDone = { vm.setDiscordWebhookUrl(webhookUrl.trim()); focusManager.clearFocus() },
+                    )
                 }
+            }
+        }
+    }
+}
+
+// ─── Reusable setting components ─────────────────────────────────────────────
+
+@Composable
+private fun DrawableSettingsSection(
+    @DrawableRes icon: Int,
+    iconTint: Color,
+    title: String,
+    description: String,
+    checked: Boolean,
+    onToggle: (Boolean) -> Unit,
+    forceDisabled: Boolean = false,
+    subContent: @Composable () -> Unit = {},
+) {
+    FrostedCard(cornerRadius = 18.dp, modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier.size(40.dp).clip(CircleShape)
+                            .background(iconTint.copy(alpha = 0.15f)),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            painter = painterResource(icon),
+                            contentDescription = null, tint = iconTint,
+                            modifier = Modifier.size(22.dp),
+                        )
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    Text(
+                        title,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = if (forceDisabled) KiyoOnSurfaceMuted else MaterialTheme.colorScheme.onSurface,
+                    )
+                }
+                Switch(
+                    checked = checked, onCheckedChange = onToggle, enabled = !forceDisabled,
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = Color.White, checkedTrackColor = KiyoTeal),
+                )
+            }
+            Spacer(Modifier.height(4.dp))
+            Text(description, style = MaterialTheme.typography.bodyMedium, color = KiyoOnSurfaceMuted)
+            AnimatedVisibility(visible = checked, enter = expandVertically(), exit = shrinkVertically()) {
+                Column(modifier = Modifier.padding(top = 12.dp)) { subContent() }
             }
         }
     }
@@ -292,16 +460,11 @@ private fun SettingsSection(
 
 @Composable
 private fun SubSettingToggle(
-    label: String,
-    description: String,
-    checked: Boolean,
-    onToggle: (Boolean) -> Unit,
-    forceDisabled: Boolean = false,
+    label: String, description: String, checked: Boolean,
+    onToggle: (Boolean) -> Unit, forceDisabled: Boolean = false,
 ) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
+        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp))
             .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.3f))
             .padding(horizontal = 14.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -312,58 +475,37 @@ private fun SubSettingToggle(
             Text(description, style = MaterialTheme.typography.bodySmall, color = KiyoOnSurfaceMuted)
         }
         Spacer(Modifier.width(8.dp))
-        Switch(
-            checked = checked,
-            onCheckedChange = onToggle,
-            enabled = !forceDisabled,
-            colors = SwitchDefaults.colors(
-                checkedThumbColor = Color.White,
-                checkedTrackColor = KiyoTeal,
-            ),
-        )
+        Switch(checked = checked, onCheckedChange = onToggle, enabled = !forceDisabled,
+            colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = KiyoTeal))
     }
 }
 
 @Composable
 private fun SubSettingSlider(
-    label: String,
-    value: Float,
-    valueRange: ClosedFloatingPointRange<Float>,
-    onValueChange: (Float) -> Unit,
+    label: String, value: Float,
+    valueRange: ClosedFloatingPointRange<Float>, onValueChange: (Float) -> Unit,
 ) {
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
+        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp))
             .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.3f))
             .padding(horizontal = 14.dp, vertical = 10.dp),
     ) {
         Text(label, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
         Slider(
-            value = value,
-            onValueChange = onValueChange,
-            valueRange = valueRange,
+            value = value, onValueChange = onValueChange, valueRange = valueRange,
             modifier = Modifier.fillMaxWidth(),
             colors = SliderDefaults.colors(
-                thumbColor = KiyoTeal,
-                activeTrackColor = KiyoTeal,
-                inactiveTrackColor = KiyoTeal.copy(alpha = 0.25f),
-            ),
+                thumbColor = KiyoTeal, activeTrackColor = KiyoTeal,
+                inactiveTrackColor = KiyoTeal.copy(alpha = 0.25f)),
         )
     }
 }
 
 @Composable
-private fun SubSettingRow(
-    label: String,
-    description: String,
-    content: @Composable () -> Unit,
-) {
+private fun SubSettingRow(label: String, description: String, content: @Composable () -> Unit) {
     Spacer(Modifier.height(8.dp))
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
+        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp))
             .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.3f))
             .padding(horizontal = 14.dp, vertical = 10.dp),
     ) {
@@ -377,34 +519,76 @@ private fun SubSettingRow(
 @Composable
 private fun QualityChip(label: String, selected: Boolean, onClick: () -> Unit) {
     Box(
-        modifier = Modifier
-            .clip(RoundedCornerShape(50.dp))
+        modifier = Modifier.clip(RoundedCornerShape(50.dp))
             .background(if (selected) KiyoTeal else KiyoTeal.copy(alpha = 0.12f))
             .clickable(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 6.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Text(
-            label,
-            style = MaterialTheme.typography.labelMedium,
+        Text(label, style = MaterialTheme.typography.labelMedium,
             color = if (selected) Color.White else KiyoTeal,
-            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal)
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SettingsTextField(
+    value: String, onValueChange: (String) -> Unit,
+    placeholder: String, onDone: () -> Unit,
+) {
+    TextField(
+        value = value,
+        onValueChange = onValueChange,
+        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)),
+        placeholder = { Text(placeholder, style = MaterialTheme.typography.bodyMedium, color = KiyoOnSurfaceMuted) },
+        colors = TextFieldDefaults.colors(
+            focusedContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.3f),
+            unfocusedContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.3f),
+            focusedIndicatorColor = KiyoTeal,
+            unfocusedIndicatorColor = Color.Transparent,
+            cursorColor = KiyoTeal,
+        ),
+        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+        keyboardActions = KeyboardActions(onDone = { onDone() }),
+        singleLine = true,
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CredentialField(
+    label: String, value: String, onValueChange: (String) -> Unit,
+    isSecret: Boolean, onDone: () -> Unit,
+) {
+    Column {
+        Text(label, style = MaterialTheme.typography.bodyMedium, color = KiyoOnSurfaceMuted)
+        Spacer(Modifier.height(2.dp))
+        TextField(
+            value = value, onValueChange = onValueChange,
+            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)),
+            visualTransformation = if (isSecret) PasswordVisualTransformation() else VisualTransformation.None,
+            colors = TextFieldDefaults.colors(
+                focusedContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.3f),
+                unfocusedContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.3f),
+                focusedIndicatorColor = KiyoTeal,
+                unfocusedIndicatorColor = Color.Transparent,
+                cursorColor = KiyoTeal,
+            ),
+            keyboardOptions = KeyboardOptions(
+                imeAction = ImeAction.Done,
+                keyboardType = if (isSecret) KeyboardType.Password else KeyboardType.Text,
+            ),
+            keyboardActions = KeyboardActions(onDone = { onDone() }),
+            singleLine = true,
         )
     }
 }
 
 @Composable
 private fun InfoRow(text: String) {
-    Row(
-        modifier = Modifier.padding(vertical = 3.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Box(
-            modifier = Modifier
-                .size(6.dp)
-                .clip(CircleShape)
-                .background(KiyoSuccess),
-        )
+    Row(modifier = Modifier.padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+        Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(KiyoSuccess))
         Spacer(Modifier.width(8.dp))
         Text(text, style = MaterialTheme.typography.bodySmall, color = KiyoOnSurfaceMuted)
     }

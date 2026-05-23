@@ -1,40 +1,22 @@
 package com.space4414.kiyo.ui.screen
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.space4414.kiyo.R
 import com.space4414.kiyo.data.db.entity.TrackEntity
 import com.space4414.kiyo.ui.component.AlbumArtBox
 import com.space4414.kiyo.ui.component.AmbientBackdrop
@@ -60,8 +42,12 @@ fun QueueScreen(
             if (uiState.queue.isEmpty()) {
                 Box(Modifier.fillMaxSize(), Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(Icons.Default.GraphicEq, null, modifier = Modifier.size(56.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(0.4f))
+                        Icon(
+                            painter = painterResource(R.drawable.ic_kiyo_graphic_eq),
+                            contentDescription = null,
+                            modifier = Modifier.size(56.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(0.4f),
+                        )
                         Spacer(Modifier.height(12.dp))
                         Text("Queue is empty", style = MaterialTheme.typography.bodyLarge,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -105,7 +91,8 @@ private fun QueueTopBar(count: Int, onClose: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         IconButton(onClick = onClose) {
-            Icon(Icons.Default.KeyboardArrowDown, "Close", tint = MaterialTheme.colorScheme.onSurface)
+            Icon(Icons.Default.KeyboardArrowDown, "Close",
+                tint = MaterialTheme.colorScheme.onSurface)
         }
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text("Active Queues", style = MaterialTheme.typography.titleLarge)
@@ -126,8 +113,12 @@ private fun QueueRow(track: TrackEntity, isActive: Boolean, onClick: () -> Unit)
     ) {
         Row(modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically) {
-            AlbumArtBox(albumId = track.albumId, modifier = Modifier.size(48.dp),
-                cornerRadius = 8.dp, iconSize = 20.dp)
+            AlbumArtBox(
+                albumId = track.albumId,
+                fallbackLabel = track.album.ifBlank { track.title },
+                modifier = Modifier.size(48.dp),
+                cornerRadius = 8.dp, iconSize = 20.dp,
+            )
             Spacer(Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
                 if (isActive) Text("Currently playing", style = MaterialTheme.typography.labelMedium,
@@ -138,14 +129,18 @@ private fun QueueRow(track: TrackEntity, isActive: Boolean, onClick: () -> Unit)
                     maxLines = 1, overflow = TextOverflow.Ellipsis,
                     fontWeight = if (isActive) FontWeight.SemiBold else FontWeight.Normal,
                 )
-                Text(
-                    track.rawArtist.toDisplayArtist(),
+                Text(track.rawArtist.toDisplayArtist(),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            if (isActive) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_kiyo_graphic_eq),
+                    contentDescription = null,
+                    tint = KiyoTeal, modifier = Modifier.size(20.dp),
                 )
             }
-            if (isActive) Icon(Icons.Default.GraphicEq, null, tint = KiyoTeal, modifier = Modifier.size(20.dp))
         }
     }
 }

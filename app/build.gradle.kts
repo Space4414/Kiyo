@@ -25,10 +25,6 @@ android {
     }
 
     // ─── Release keystore ─────────────────────────────────────────────────────
-    // In CI: SIGNING_KEYSTORE_PATH, SIGNING_STORE_PASSWORD, SIGNING_KEY_ALIAS,
-    //        SIGNING_KEY_PASSWORD are set by the stable.yml workflow from GitHub
-    //        Secrets.  Locally those env vars are absent, so the release build
-    //        type falls back to the debug keystore (still side-loadable).
     signingConfigs {
         create("release") {
             val keystorePath  = System.getenv("SIGNING_KEYSTORE_PATH")
@@ -67,7 +63,7 @@ android {
         }
     }
 
-    // ─── ABI splits ────────────────────────────────────────────────────────────
+    // ─── ABI splits — per-ABI APKs reduce download size per device ────────────
     splits {
         abi {
             isEnable = true
@@ -135,41 +131,59 @@ androidComponents {
 }
 
 dependencies {
+    // ── Compose BOM ────────────────────────────────────────────────────────────
     val composeBom = platform("androidx.compose:compose-bom:2024.05.00")
     implementation(composeBom)
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-graphics")
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
-    implementation("androidx.compose.material:material-icons-extended")
+    // NOTE: material-icons-extended removed (was ~5 MB in debug APK).
+    // Custom icons are now lightweight XML vector drawables in res/drawable/.
+    // material-icons-core is pulled transitively by material3 for the core icon set.
     implementation("androidx.compose.animation:animation")
 
+    // ── AndroidX core ──────────────────────────────────────────────────────────
     implementation("androidx.navigation:navigation-compose:2.7.7")
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.0")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.0")
     implementation("androidx.activity:activity-compose:1.9.0")
 
+    // ── Media3 / ExoPlayer ─────────────────────────────────────────────────────
     implementation("androidx.media3:media3-exoplayer:1.3.1")
     implementation("androidx.media3:media3-session:1.3.1")
     implementation("androidx.media3:media3-ui:1.3.1")
     implementation("androidx.media3:media3-common:1.3.1")
 
+    // ── Room ───────────────────────────────────────────────────────────────────
     implementation("androidx.room:room-runtime:2.6.1")
     implementation("androidx.room:room-ktx:2.6.1")
     ksp("androidx.room:room-compiler:2.6.1")
 
+    // ── Hilt ───────────────────────────────────────────────────────────────────
     implementation("com.google.dagger:hilt-android:2.51.1")
     ksp("com.google.dagger:hilt-compiler:2.51.1")
     implementation("androidx.hilt:hilt-navigation-compose:1.2.0")
 
+    // ── Coroutines ─────────────────────────────────────────────────────────────
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
+
+    // ── Network (Last.fm scrobbling + Discord RPC) ─────────────────────────────
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
-    implementation("androidx.palette:palette-ktx:1.0.0")
+
+    // ── Image loading ──────────────────────────────────────────────────────────
+    // Coil handles MediaStore album art URIs with in-memory + disk caching.
+    // palette-ktx removed (not wired to any live UI — saves ~200 KB from debug APK).
     implementation("io.coil-kt:coil-compose:2.6.0")
+
+    // ── Settings persistence ────────────────────────────────────────────────────
     implementation("androidx.datastore:datastore-preferences:1.1.1")
+
+    // ── Last.fm scrobble cache serialisation ───────────────────────────────────
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
 
+    // ── Debug tooling ──────────────────────────────────────────────────────────
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
     testImplementation("junit:junit:4.13.2")
