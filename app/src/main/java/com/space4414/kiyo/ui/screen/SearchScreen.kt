@@ -56,7 +56,6 @@ package com.space4414.kiyo.ui.screen
               .background(Color.Black)
               .statusBarsPadding(),
       ) {
-          // Search pill — Poweramp style
           Row(
               modifier = Modifier
                   .fillMaxWidth()
@@ -72,7 +71,7 @@ package com.space4414.kiyo.ui.screen
                   onValueChange = { query = it },
                   modifier = Modifier.weight(1f),
                   placeholder = {
-                      Text("Search songs, artists, albums…", fontSize = 14.sp, color = Color(0xFF6E6E73))
+                      Text("Search songs, artists, albums", fontSize = 14.sp, color = Color(0xFF6E6E73))
                   },
                   colors = TextFieldDefaults.colors(
                       focusedContainerColor = Color.Transparent,
@@ -113,7 +112,7 @@ package com.space4414.kiyo.ui.screen
                   }
               }
               results.isEmpty() -> Box(Modifier.fillMaxSize(), Alignment.Center) {
-                  Text("No results for "" + query + """, fontSize = 14.sp, color = Color(0xFF6E6E73))
+                  Text("No results for: " + query, fontSize = 14.sp, color = Color(0xFF6E6E73))
               }
               else -> LazyColumn {
                   itemsIndexed(results, key = { _, t -> t.id }) { index, track ->
