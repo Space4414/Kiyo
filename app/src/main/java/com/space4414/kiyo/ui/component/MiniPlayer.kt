@@ -1,5 +1,6 @@
 package com.space4414.kiyo.ui.component
 
+import androidx.annotation.DrawableRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -12,10 +13,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -25,8 +22,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.space4414.kiyo.R
 import com.space4414.kiyo.data.db.entity.TrackEntity
 import com.space4414.kiyo.ui.theme.KiyoOutline
 import com.space4414.kiyo.ui.theme.KiyoTeal
@@ -43,6 +42,8 @@ fun MiniPlayer(
     modifier: Modifier = Modifier,
 ) {
     val progress = if (durationMs > 0L) (positionMs.toFloat() / durationMs).coerceIn(0f, 1f) else 0f
+
+    @DrawableRes val playPauseIcon: Int = if (isPlaying) R.drawable.ic_kiyo_pause else R.drawable.ic_kiyo_graphic_eq
 
     Box(
         modifier = modifier
@@ -86,9 +87,10 @@ fun MiniPlayer(
                     ) {
                         IconButton(onClick = onToggle, modifier = Modifier.size(40.dp)) {
                             Icon(
-                                imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                                painter = painterResource(playPauseIcon),
                                 contentDescription = if (isPlaying) "Pause" else "Play",
-                                tint = Color(0xFF12161A), modifier = Modifier.size(22.dp),
+                                tint = Color(0xFF12161A),
+                                modifier = Modifier.size(22.dp),
                             )
                         }
                     }

@@ -20,7 +20,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -35,10 +34,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.space4414.kiyo.R
 import com.space4414.kiyo.data.db.entity.TrackEntity
 import com.space4414.kiyo.ui.component.AlbumArtBox
 import com.space4414.kiyo.ui.component.AmbientBackdrop
@@ -166,8 +167,10 @@ private fun SectionHeader(title: String) {
     ) {
         Text(title, style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface)
         Icon(
-            Icons.Default.ChevronRight, contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp),
+            painter = painterResource(R.drawable.ic_kiyo_chevron_right),
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(20.dp),
         )
     }
 }
@@ -297,9 +300,7 @@ private fun ArtistGrid(tracks: List<TrackEntity>) {
             FrostedCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 14.dp) {
                 Row(modifier = Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
                     Box(
-                        modifier = Modifier.size(44.dp).clip(RoundedCornerShape(50)).let {
-                            it
-                        },
+                        modifier = Modifier.size(44.dp).clip(RoundedCornerShape(50)),
                         contentAlignment = Alignment.Center,
                     ) {
                         Text(

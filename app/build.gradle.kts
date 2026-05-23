@@ -140,7 +140,8 @@ dependencies {
     implementation("androidx.compose.material3:material3")
     // NOTE: material-icons-extended removed (was ~5 MB in debug APK).
     // Custom icons are now lightweight XML vector drawables in res/drawable/.
-    // material-icons-core is pulled transitively by material3 for the core icon set.
+    // material-icons-core added explicitly (NOT transitively included by material3).
+    implementation("androidx.compose.material:material-icons-core")
     implementation("androidx.compose.animation:animation")
 
     // ── AndroidX core ──────────────────────────────────────────────────────────
